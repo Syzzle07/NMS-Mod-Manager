@@ -2,7 +2,9 @@
 
 A modern, lightweight mod manager for No Man's Sky built with Tauri, Rust, and web technologies.
 
-![Screenshot of NMS Mod Manager](path/to/your/screenshot.png)
+![Screenshot](NMS-Mod-Manager/screenshots/screenshot1.png)
+![Screenshot](NMS-Mod-Manager/screenshots/screenshot2.png)
+![Screenshot](NMS-Mod-Manager/screenshots/screenshot3.png)
 
 ## Features
 

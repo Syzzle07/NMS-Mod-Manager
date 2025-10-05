@@ -7,6 +7,7 @@ import { appWindow } from "@tauri-apps/api/window";
 document.addEventListener('DOMContentLoaded', () => {
     let gamePath = null, currentFilePath = null, xmlDoc = null, isPopulating = false;
 
+    // Element references
     const loadFileBtn = document.getElementById('loadFileBtn'),
           openModsFolderBtn = document.getElementById('openModsFolderBtn'),
           filePathLabel = document.getElementById('filePathLabel'),
@@ -18,10 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
           deleteSettingsBtn = document.getElementById('deleteSettingsBtn'),
           dropZone = document.getElementById('dropZone');
     
+    // Title Bar Events
     document.getElementById('minimizeBtn').addEventListener('click', () => appWindow.minimize());
     document.getElementById('maximizeBtn').addEventListener('click', () => appWindow.toggleMaximize());
     document.getElementById('closeBtn').addEventListener('click', () => appWindow.close());
 
+    // --- Function to reset the entire UI to its initial state ---
+    const resetUiToFileLoadedState = (message) => {
+        filePathLabel.textContent = message;
+        disableAllSwitch.checked = false;
+        disableAllSwitch.disabled = true;
+        modListContainer.innerHTML = ''; 
+    };
+    
+    // Initialization & Auto-Loading
     const initializeApp = async () => {
         gamePath = await invoke('get_game_path');
         const hasGamePath = !!gamePath;
@@ -41,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const content = await readTextFile(settingsPath);
             await loadXmlContent(content, settingsPath);
         } catch (e) {
-            console.warn("Could not auto-load settings file. It may not exist yet.", e);
+            console.warn("Could not auto-load settings file.", e);
             filePathLabel.textContent = "No file loaded. Game detected.";
         }
     };
@@ -113,9 +124,17 @@ document.addEventListener('DOMContentLoaded', () => {
     troubleshootBtn.addEventListener('click', showModal);
     cancelModalBtn.addEventListener('click', hideModal);
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) hideModal(); });
+
+    // Delete button now resets the application state ---
     deleteSettingsBtn.addEventListener('click', async () => {
         try {
             const message = await invoke('delete_settings_file');
+            
+            currentFilePath = null;
+            xmlDoc = null;
+
+            resetUiToFileLoadedState("No file loaded. Settings file was deleted.");
+
             alert(message);
         } catch (error) {
             alert(`Error: ${error}`);
@@ -133,12 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const archiveFiles = event.payload.paths.filter(path => 
                     path.toLowerCase().endsWith('.zip') || path.toLowerCase().endsWith('.rar')
                 );
-
                 if (archiveFiles.length === 0) {
                     alert("No .zip or .rar files were dropped.");
                     return;
                 }
-                
                 for (const filePath of archiveFiles) {
                     try {
                         const message = await invoke('install_mod_from_archive', { archivePathStr: filePath });
