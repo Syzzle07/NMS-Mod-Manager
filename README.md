@@ -1,6 +1,6 @@
 # NMS Mod Manager
 
-A lightweight mod manager for No Man's Sky built with Tauri and Rust that started as a curiosity if an AI could help making it.
+A simple lightweight mod manager for No Man's Sky built with Tauri and Rust that started as a curiosity if an AI could help making it.
 
 ![Screenshot](screenshots/Screenshot1.png)
 ![Screenshot](screenshots/Screenshot2.png)
