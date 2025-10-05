@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NMS Mod Manager</title>
+  </head>
+  <body>
+    <!-- Custom Title Bar -->
+    <div data-tauri-drag-region class="title-bar">
+      <div class="title-bar-content">
+        <img src="/src/assets/icon.ico" class="window-icon" alt="icon">
+        <span>NMS Mod Manager</span>
+      </div>
+      <div class="title-bar-controls">
+        <div class="title-bar-btn" id="minimizeBtn">-</div>
+        <div class="title-bar-btn" id="maximizeBtn">□</div>
+        <div class="title-bar-btn" id="closeBtn">×</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="top-panel">
+        <div class="button-section">
+          <button id="loadFileBtn">Load GCMODSETTINGS File</button>
+          <span id="filePathLabel">No file loaded.</span>
+          <button id="openModsFolderBtn">Open MODS Folder</button>
+        </div>
+        <div class="global-settings">
+          <h3>Global Settings</h3>
+          <div class="setting-row">
+            <div class="setting-row-left">
+              <label class="switch"><input type="checkbox" id="disableAllSwitch" disabled><span class="slider"></span></label>
+              <label for="disableAllSwitch">Disable All Mods</label>
+            </div>
+            <button id="troubleshootBtn" class="troubleshoot-btn" disabled>Troubleshoot</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="list-panel">
+        <div class="header-row">
+          <span class="mod-name">Mod Name</span>
+          <span class="priority">Priority</span>
+          <span class="enabled">Enabled</span>
+        </div>
+        <div id="modListContainer" class="mod-list"></div>
+      </div>
+      <div id="dropZone" class="drop-zone hidden">
+        <span>DROP .ZIP OR .RAR FILES HERE TO INSTALL MODS</span>
+      </div>
+    </div>
+    
+    <!-- Modal Popup (Complete and Unabridged) -->
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Troubleshoot</h2>
+            <p>This will DELETE the GCMODSETTINGS file, forcing the game to regenerate a new one on the next launch.</p>
+            <div class="modal-actions">
+                <button id="cancelModalBtn" class="modal-btn-cancel">Cancel</button>
+                <button id="deleteSettingsBtn" class="modal-btn-delete">Delete GCMODSETTINGS.MXML</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
