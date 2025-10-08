@@ -12,25 +12,32 @@ use unrar;
 #[tauri::command]
 fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> {
     let archive_path = Path::new(&archive_path_str);
-    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("");
-    let file_name = archive_path.file_name().unwrap_or_default().to_string_lossy();
+    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
     
-    let game_path = find_game_path().ok_or("Could not find the game installation path.")?;
+    let game_path = find_game_path().ok_or_else(|| "Could not find the game installation path.".to_string())?;
     let mods_path = game_path.join("GAMEDATA").join("MODS");
     fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
 
-    match extension.to_lowercase().as_str() {
+    let mod_name = match extension.as_str() {
         "zip" => extract_zip(archive_path, &mods_path)?,
         "rar" => extract_rar(archive_path, &mods_path)?,
         _ => return Err(format!("Unsupported file type: .{}", extension)),
-    }
+    };
     
-    Ok(format!("Successfully installed '{}' to the MODS folder.", file_name))
+    Ok(mod_name)
 }
 
-fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<(), String> {
+fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<String, String> {
     let file = fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+    let mut primary_name = String::new();
+
+    if let Some(file) = archive.file_names().find(|name| name.ends_with(".pak") && !name.contains('/')) {
+        primary_name = Path::new(file).file_stem().unwrap().to_string_lossy().to_uppercase();
+    } else if let Some(dir) = archive.file_names().find(|name| name.ends_with('/') && name.matches('/').count() == 1) {
+        primary_name = dir.trim_end_matches('/').to_uppercase();
+    }
+
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
         if let Some(outpath) = file.enclosed_name().map(|p| dest_path.join(p)) {
@@ -43,32 +50,50 @@ fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<(), String> {
             }
         }
     }
-    Ok(())
+    Ok(primary_name)
 }
 
-fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<(), String> {
+// --- DEFINITIVELY CORRECTED RAR EXTRACTION FUNCTION ---
+// This version uses the correct `skip()` method for directories as per the official documentation.
+fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
     let mut archive = unrar::Archive::new(rar_path)
         .open_for_processing()
-        .map_err(|e| format!("Failed to open RAR file: {:?}", e))?;
+        .map_err(|e| format!("Failed to open RAR: {:?}", e))?;
+    let mut primary_name = String::new();
 
     while let Ok(Some(header)) = archive.read_header() {
-        let outpath = dest_path.join(header.entry().filename.to_string_lossy().to_string());
-        
-        archive = if header.entry().is_file() {
+        let entry = header.entry();
+        let filename_str = entry.filename.to_string_lossy().to_string();
+        let outpath = dest_path.join(&filename_str);
+
+        if primary_name.is_empty() {
+            if filename_str.to_lowercase().ends_with(".pak") && !filename_str.contains('\\') && !filename_str.contains('/') {
+                primary_name = Path::new(&filename_str).file_stem().unwrap().to_string_lossy().to_uppercase();
+            } else if let Some(root_dir) = filename_str.split(&['\\', '/'][..]).next() {
+                if !root_dir.is_empty() {
+                    primary_name = root_dir.to_uppercase();
+                }
+            }
+        }
+
+        archive = if entry.is_file() {
             if let Some(p) = outpath.parent() {
                 if !p.exists() { fs::create_dir_all(&p).unwrap(); }
             }
+            // Extract the current entry to the specified path
             header.extract_to(outpath)
                   .map_err(|e| format!("Failed to extract file from RAR: {:?}", e))?
         } else {
+            // It's a directory. Create it on disk and then correctly 'skip'
+            // the entry to advance the archive's internal state.
             fs::create_dir_all(&outpath).unwrap();
             header.skip()
                   .map_err(|e| format!("Failed to process directory entry in RAR: {:?}", e))?
         };
     }
-    Ok(())
-}
 
+    Ok(primary_name)
+}
 
 #[tauri::command]
 fn delete_settings_file() -> Result<String, String> {
@@ -76,12 +101,12 @@ fn delete_settings_file() -> Result<String, String> {
         let settings_file = game_path.join("Binaries").join("SETTINGS").join("GCMODSETTINGS.MXML");
         if settings_file.exists() {
             fs::remove_file(&settings_file).map_err(|e| e.to_string())?;
-            Ok("GCMODSETTINGS.MXML has been deleted successfully.".to_string())
+            Ok("alertDeleteSuccess".to_string())
         } else {
-            Ok("GCMODSETTINGS.MXML was not found (it may have already been deleted).".to_string())
+            Ok("alertDeleteNotFound".to_string())
         }
     } else {
-        Err("Could not find game path. File was not deleted.".to_string())
+        Err("alertDeleteError".to_string())
     }
 }
 
