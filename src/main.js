@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { open } from "@tauri-apps/api/dialog";
 import { readTextFile } from "@tauri-apps/api/fs";
-import { basename, join } from "@tauri-apps/api/path";
+import { basename, join, resolveResource } from "@tauri-apps/api/path";
 import { appWindow } from "@tauri-apps/api/window";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,8 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const i18n = {
         async loadLanguage(lang) {
             try {
-                const response = await fetch(`/src/locales/${lang}.json`);
-                currentTranslations = await response.json();
+                const resourcePath = await resolveResource(`locales/${lang}.json`);
+                const content = await readTextFile(resourcePath);
+                currentTranslations = JSON.parse(content);
+                
                 localStorage.setItem('selectedLanguage', lang);
                 this.updateUI();
             } catch (e) {
