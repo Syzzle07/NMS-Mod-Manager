@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "NMS Mod Manager",
-    "version": "1.0.0"
+    "version": "1.0.4"
   },
   "tauri": {
     "allowlist": {
