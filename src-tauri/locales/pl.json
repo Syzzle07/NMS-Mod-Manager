@@ -1,6 +1,7 @@
 {
   "windowTitle": "Menedżer modów NMS",
   "loadFileBtn": "Załaduj plik GCMODSETTINGS",
+  "searchPlaceholder": "Szukaj modów...",
   "openModsFolderBtn": "Otwórz folder z modami",
   "noFileLoaded": "Nie załadowano żadnego pliku.",
   "gameDetected": "Wykryto pliki gry.",

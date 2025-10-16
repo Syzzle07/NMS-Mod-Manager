@@ -1,6 +1,7 @@
 {
   "windowTitle": "NMS Mod Manager",
   "loadFileBtn": "Load GCMODSETTINGS",
+  "searchPlaceholder": "Search mods...",
   "openModsFolderBtn": "Open MODS Folder",
   "noFileLoaded": "No file loaded.",
   "gameDetected": "Game detected.",

@@ -1,6 +1,7 @@
 {
   "windowTitle": "NMS Mod Manager",
   "loadFileBtn": "Завантажити GCMODSETTINGS",
+  "searchPlaceholder": "Пошук модів...",
   "openModsFolderBtn": "Відкрити папку MODS",
   "noFileLoaded": "Файл не завантажено.",
   "gameDetected": "Гру виявлено.",

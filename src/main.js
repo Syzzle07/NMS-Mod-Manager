@@ -25,8 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUI() {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
+                const attributeName = el.getAttribute('data-i18n-attr');
+
                 if (currentTranslations[key]) {
-                    el.textContent = currentTranslations[key];
+                    const translatedText = currentTranslations[key];
+
+                    if (attributeName) {
+                        el.setAttribute(attributeName, translatedText);
+                    } else {
+                        el.textContent = translatedText;
+                    }
                 }
             });
             if (currentFilePath) {
@@ -56,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
           cancelModalBtn = document.getElementById('cancelModalBtn'),
           deleteSettingsBtn = document.getElementById('deleteSettingsBtn'),
           dropZone = document.getElementById('dropZone'),
+          searchModsInput = document.getElementById('searchModsInput'),
           languageSelector = document.getElementById('languageSelector');
     
     document.getElementById('minimizeBtn').addEventListener('click', () => appWindow.minimize());
@@ -65,6 +74,29 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('contextmenu', (e) => {
         e.preventDefault();
     });
+
+    const filterModList = () => {
+    // Get the search term and convert to lower case for case-insensitive matching
+    const searchTerm = searchModsInput.value.trim().toLowerCase();
+
+    // Get all the mod row elements from the container
+    const modRows = modListContainer.querySelectorAll('.mod-row');
+
+        modRows.forEach(row => {
+            const modNameElement = row.querySelector('.mod-name');
+            if (modNameElement) {
+                const modName = modNameElement.textContent.toLowerCase();
+
+                // If the mod name includes the search term, show it. Otherwise, hide it.
+                if (modName.includes(searchTerm)) {
+                    row.style.display = 'flex';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    };
+    searchModsInput.addEventListener('input', filterModList);
 
     const initializeApp = async () => {
         const savedLang = localStorage.getItem('selectedLanguage') || 'en';
@@ -135,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             modListContainer.appendChild(row);
         });
         isPopulating = false;
+        filterModList();
     };
     
     // --- XML Pretty Print Function ---

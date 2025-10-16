@@ -1,6 +1,7 @@
 {
   "windowTitle": "NMS Modhanterare",
   "loadFileBtn": "Ladda GCMODSETTINGS",
+  "searchPlaceholder": "Sök moddar...",
   "openModsFolderBtn": "Öppna MODS-mapp",
   "noFileLoaded": "Ingen fil laddad.",
   "gameDetected": "Spelet upptäckt.",

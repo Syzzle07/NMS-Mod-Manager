@@ -1,6 +1,7 @@
 {
 "windowTitle": "Gerenciador de Mods de NMS",
 "loadFileBtn": "Carregar GCMODSETTINGS",
+"searchPlaceholder": "Pesquisar mods...",
 "openModsFolderBtn": "Abrir a pasta de MODS",
 "noFileLoaded": "Nenhum arquivo carregado.",
 "gameDetected": "Jogo encontrado.",
