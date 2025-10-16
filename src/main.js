@@ -38,8 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (currentFilePath) {
-                basename(currentFilePath).then(fileName => {
-                    filePathLabel.textContent = this.get('editingFile', { fileName });
+                basename(currentFilePath).then(fileNameWithExt => {
+                    const fileNameWithoutExt = fileNameWithExt.slice(0, fileNameWithExt.lastIndexOf('.'));
+                    filePathLabel.textContent = this.get('editingFile', { fileName: fileNameWithoutExt });
                 });
             } else {
                 filePathLabel.textContent = this.get('noFileLoaded');
@@ -130,8 +131,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadXmlContent = async (content, path) => {
         currentFilePath = path;
-        const fileName = await basename(currentFilePath);
-        filePathLabel.textContent = i18n.get('editingFile', { fileName });
+        const fileNameWithExt = await basename(currentFilePath);
+        // This line removes the extension from the filename
+        const fileNameWithoutExt = fileNameWithExt.slice(0, fileNameWithExt.lastIndexOf('.'));
+        filePathLabel.textContent = i18n.get('editingFile', { fileName: fileNameWithoutExt });
         xmlDoc = new DOMParser().parseFromString(content, "application/xml");
         renderModList();
     };

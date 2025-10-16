@@ -152,6 +152,28 @@ body {
 	margin-bottom: 15px;
 }
 
+.button-section button {
+  flex-shrink: 0;
+}
+
+#filePathLabel {
+  /* --- FONT SIZE CONTROL --- */
+  font-size: 15px;
+
+  /* --- FLEXBOX LAYOUT CONTROL --- */
+  flex-shrink: 1;
+  min-width: 0;
+  
+  /* --- ELLIPSIS FOR OVERFLOW --- */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  /* --- STYLING & ALIGNMENT --- */
+  text-align: left;
+   margin: 0 5px;
+}
+
 button:not(.title-bar-btn) {
 	background-color: var(--accent-color);
 	border: none;
