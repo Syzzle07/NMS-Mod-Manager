@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{Manager, PhysicalPosition, PhysicalSize}; 
+use tauri::{Manager, PhysicalPosition}; 
 use std::io;
 use std::path::Path;
 use winreg::enums::*;
@@ -14,8 +14,6 @@ use unrar;
 
 #[derive(Serialize, Deserialize)]
 struct WindowState {
-    width: u32,
-    height: u32,
     x: i32,
     y: i32,
     maximized: bool,
@@ -195,7 +193,6 @@ fn main() {
             let state_file_path = get_state_file_path();
             if let Ok(state_json) = fs::read_to_string(state_file_path) {
                 if let Ok(state) = serde_json::from_str::<WindowState>(&state_json) {
-                    window.set_size(PhysicalSize::new(state.width, state.height)).unwrap();
                     window.set_position(PhysicalPosition::new(state.x, state.y)).unwrap();
                     if state.maximized {
                         window.maximize().unwrap();
@@ -210,12 +207,9 @@ fn main() {
                     let window = event.window();
                     let is_maximized = window.is_maximized().unwrap_or(false);
                     if !is_maximized {
-                        let size = window.outer_size().unwrap();
                         let position = window.outer_position().unwrap();
 
                         let state = WindowState {
-                            width: size.width,
-                            height: size.height,
                             x: position.x,
                             y: position.y,
                             maximized: is_maximized,
