@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isPopulating = false;
     };
     
-    // --- NEW: XML Pretty Print Function ---
+    // --- XML Pretty Print Function ---
     const formatXml = (xmlString) => {
         let formatted = '', indent= '';
         const tab = '  '; // Use 2 spaces for indentation

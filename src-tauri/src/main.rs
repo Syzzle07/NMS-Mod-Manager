@@ -1,13 +1,31 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
+use std::path::PathBuf;
+use tauri::{Manager, PhysicalPosition, PhysicalSize}; 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use winreg::enums::*;
 use winreg::RegKey;
-use tauri::Manager;
 use zip::ZipArchive;
 use unrar;
+
+#[derive(Serialize, Deserialize)]
+struct WindowState {
+    width: u32,
+    height: u32,
+    x: i32,
+    y: i32,
+    maximized: bool,
+}
+
+fn get_state_file_path() -> PathBuf {
+    let exe_path = env::current_exe().expect("Failed to find executable path");
+    let exe_dir = exe_path.parent().expect("Failed to get parent directory of executable");
+    exe_dir.join("window-state.json")
+}
 
 #[tauri::command]
 fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> {
@@ -53,8 +71,6 @@ fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<String, String> {
     Ok(primary_name)
 }
 
-// --- DEFINITIVELY CORRECTED RAR EXTRACTION FUNCTION ---
-// This version uses the correct `skip()` method for directories as per the official documentation.
 fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
     let mut archive = unrar::Archive::new(rar_path)
         .open_for_processing()
@@ -80,12 +96,9 @@ fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
             if let Some(p) = outpath.parent() {
                 if !p.exists() { fs::create_dir_all(&p).unwrap(); }
             }
-            // Extract the current entry to the specified path
             header.extract_to(outpath)
                   .map_err(|e| format!("Failed to extract file from RAR: {:?}", e))?
         } else {
-            // It's a directory. Create it on disk and then correctly 'skip'
-            // the entry to advance the archive's internal state.
             fs::create_dir_all(&outpath).unwrap();
             header.skip()
                   .map_err(|e| format!("Failed to process directory entry in RAR: {:?}", e))?
@@ -177,7 +190,59 @@ fn find_steam_path() -> Option<PathBuf> {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .setup(|app| {
+            let window = app.get_window("main").unwrap();
+            let state_file_path = get_state_file_path();
+            if let Ok(state_json) = fs::read_to_string(state_file_path) {
+                if let Ok(state) = serde_json::from_str::<WindowState>(&state_json) {
+                    window.set_size(PhysicalSize::new(state.width, state.height)).unwrap();
+                    window.set_position(PhysicalPosition::new(state.x, state.y)).unwrap();
+                    if state.maximized {
+                        window.maximize().unwrap();
+                    }
+                }
+            }
+            Ok(())
+        })
+        .on_window_event(|event| {
+            match event.event() {
+                tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) | tauri::WindowEvent::CloseRequested { .. } => {
+                    let window = event.window();
+                    let is_maximized = window.is_maximized().unwrap_or(false);
+                    if !is_maximized {
+                        let size = window.outer_size().unwrap();
+                        let position = window.outer_position().unwrap();
+
+                        let state = WindowState {
+                            width: size.width,
+                            height: size.height,
+                            x: position.x,
+                            y: position.y,
+                            maximized: is_maximized,
+                        };
+
+                        if let Ok(state_json) = serde_json::to_string(&state) {
+                            if let Err(e) = fs::write(get_state_file_path(), state_json) {
+                                eprintln!("Failed to save window state: {}", e);
+                            }
+                        }
+                    } else {
+                        let state_file_path = get_state_file_path();
+                        if let Ok(state_json) = fs::read_to_string(&state_file_path) {
+                            if let Ok(mut state) = serde_json::from_str::<WindowState>(&state_json) {
+                                state.maximized = true;
+                                if let Ok(new_state_json) = serde_json::to_string(&state) {
+                                    if let Err(e) = fs::write(state_file_path, new_state_json) {
+                                        eprintln!("Failed to save maximized state: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_game_path, open_mods_folder, save_file,
             minimize_window, toggle_maximize_window, close_window,
