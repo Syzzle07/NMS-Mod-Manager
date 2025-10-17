@@ -172,31 +172,35 @@ document.addEventListener('DOMContentLoaded', () => {
         isPopulating = false;
         filterModList();
     };
-    
-    // --- XML Pretty Print Function ---
-    const formatXml = (xmlString) => {
-        let formatted = '', indent= '';
-        const tab = '  '; // Use 2 spaces for indentation
-        xmlString.split(/>\s*</).forEach(node => {
-            if (node.match( /^\/\w/ )) indent = indent.substring(tab.length); // decrease indent by one 'tab'
-            formatted += indent + '<' + node + '>\r\n';
-            if (node.match( /^<?\w[^>]*[^\/]$/ )) indent += tab; // increase indent
-        });
-        return formatted.substring(1, formatted.length-3);
+
+    /* Pretty-print XML */
+    const formatNode = (node, indentLevel) => {
+        const indent = '  '.repeat(indentLevel);
+        const attributes = Array.from(node.attributes)
+            .map(attr => `${attr.name}="${attr.value}"`)
+            .join(' ');
+        
+        const tag = node.tagName;
+        let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
+
+        if (node.children.length > 0) {
+            nodeString += '>\n';
+            for (const child of node.children) {
+                nodeString += formatNode(child, indentLevel + 1);
+            }
+            nodeString += `${indent}</${tag}>\n`;
+        } else {
+            nodeString += ' />\n';
+        }
+        return nodeString;
     };
     
     const saveChanges = async () => {
         if (isPopulating || !currentFilePath || !xmlDoc) return;
-        
-        // Serialize the document to a string
-        const serializer = new XMLSerializer();
-        const xmlString = serializer.serializeToString(xmlDoc.documentElement);
-        
-        // Format the string for pretty printing
-        const formattedXmlString = `<?xml version="1.0" encoding="utf-8"?>\n<Data>${formatXml(xmlString)}</Data>`;
-
+        const formattedXmlString = formatNode(xmlDoc.documentElement, 0);
+        const finalContent = `<?xml version="1.0" encoding="utf-8"?>\n${formattedXmlString.trimEnd()}`;
         try { 
-            await invoke('save_file', { filePath: currentFilePath, content: formattedXmlString });
+            await invoke('save_file', { filePath: currentFilePath, content: finalContent });
         }
         catch (e) { alert(`Error saving file: ${e}`); }
     };
