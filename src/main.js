@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const modNodes = xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]');
         modNodes.forEach(modNode => {
-            const name = modNode.querySelector('Property[name="Name"]')?.getAttribute('value') || 'Unknown Mod',
+            const name = unescapeXml(modNode.querySelector('Property[name="Name"]')?.getAttribute('value') || 'Unknown Mod'),
                   priority = modNode.querySelector('Property[name="ModPriority"]')?.getAttribute('value') || '0',
                   enabled = modNode.querySelector('Property[name="Enabled"]')?.getAttribute('value').toLowerCase() === 'true';
             const row = document.createElement('div');
@@ -173,6 +173,24 @@ document.addEventListener('DOMContentLoaded', () => {
         filterModList();
     };
 
+    /* Escape special characters */
+    const escapeXml = (unsafe) => {
+        return unsafe.replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&apos;");
+    };
+
+    /* Unescapes special characters for display in the UI. */
+    const unescapeXml = (safe) => {
+        return safe.replace(/&amp;/g, "&")
+                  .replace(/&lt;/g, "<")
+                  .replace(/&gt;/g, ">")
+                  .replace(/&quot;/g, "\"")
+                  .replace(/&apos;/g, "'");
+    };
+    
     /* Pretty-print XML */
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
@@ -232,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
             prop.setAttribute('value', value);
             return prop;
         };
-        newMod.appendChild(createProp('Name', modName.toUpperCase()));
+        newMod.appendChild(createProp('Name', escapeXml(modName.toUpperCase())));
         newMod.appendChild(createProp('Author', ''));
         newMod.appendChild(createProp('ID', '0'));
         newMod.appendChild(createProp('AuthorID', '0'));
