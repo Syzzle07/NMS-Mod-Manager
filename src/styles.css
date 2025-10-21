@@ -301,6 +301,40 @@ button.modal-btn-cancel:hover {
 	width: 60px;
 }
 
+/* --- Drag Handle Styles --- */
+
+.drag-handle:active {
+  cursor: grabbing; 
+}
+
+.mod-list.drag-active {
+  padding-bottom: 50px;
+}
+
+/* --- Manual Drag and Drop Styles --- */
+
+/* This style HIDES the original element */
+.mod-row.is-dragging {
+  display: none !important;
+}
+
+.placeholder {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 2px dashed #888;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.mod-row.ghost {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0.95;
+  background-color: var(--hover-color);
+  z-index: 3000;
+  transform: scale(1.02);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
 /* --- Mod List Search Bar --- */
 
 .search-bar-container {

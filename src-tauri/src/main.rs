@@ -1,17 +1,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// --- IMPORTS ---
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
-use std::path::PathBuf;
-use tauri::{Manager, PhysicalPosition}; 
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tauri::{Manager, PhysicalPosition};
 use winreg::enums::*;
 use winreg::RegKey;
 use zip::ZipArchive;
 use unrar;
 
+// --- STRUCTS ---
 #[derive(Serialize, Deserialize)]
 struct WindowState {
     x: i32,
@@ -19,28 +20,60 @@ struct WindowState {
     maximized: bool,
 }
 
+// --- HELPER FUNCTIONS ---
 fn get_state_file_path() -> PathBuf {
     let exe_path = env::current_exe().expect("Failed to find executable path");
     let exe_dir = exe_path.parent().expect("Failed to get parent directory of executable");
     exe_dir.join("window-state.json")
 }
 
-#[tauri::command]
-fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> {
-    let archive_path = Path::new(&archive_path_str);
-    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
-    
-    let game_path = find_game_path().ok_or_else(|| "Could not find the game installation path.".to_string())?;
-    let mods_path = game_path.join("GAMEDATA").join("MODS");
-    fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
+fn find_game_path() -> Option<PathBuf> {
+    if cfg!(not(windows)) {
+        return None;
+    }
+    find_steam_path().or_else(find_gog_path)
+}
 
-    let mod_name = match extension.as_str() {
-        "zip" => extract_zip(archive_path, &mods_path)?,
-        "rar" => extract_rar(archive_path, &mods_path)?,
-        _ => return Err(format!("Unsupported file type: .{}", extension)),
-    };
-    
-    Ok(mod_name)
+fn find_gog_path() -> Option<PathBuf> {
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let gog_key = hklm.open_subkey(r"SOFTWARE\WOW6432Node\GOG.com\Games\1446223351").ok()?;
+    let game_path_str: String = gog_key.get_value("PATH").ok()?;
+    let game_path = PathBuf::from(game_path_str);
+    if game_path.join("Binaries").is_dir() {
+        Some(game_path)
+    } else {
+        None
+    }
+}
+
+fn find_steam_path() -> Option<PathBuf> {
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let steam_key = hklm.open_subkey(r"SOFTWARE\WOW6432Node\Valve\Steam").ok()?;
+    let steam_path_str: String = steam_key.get_value("InstallPath").ok()?;
+    let steam_path = PathBuf::from(steam_path_str);
+    let mut library_folders = vec![steam_path.clone()];
+    if let Ok(content) = fs::read_to_string(steam_path.join("steamapps").join("libraryfolders.vdf")) {
+        for line in content.lines() {
+            if let Some(path_str) = line.split('"').nth(3) {
+                let p = PathBuf::from(path_str.replace("\\\\", "\\"));
+                if p.exists() {
+                    library_folders.push(p);
+                }
+            }
+        }
+    }
+    for folder in library_folders {
+        let manifest_path = folder.join("steamapps").join("appmanifest_275850.acf");
+        if let Ok(content) = fs::read_to_string(manifest_path) {
+            if let Some(dir_str) = content.lines().find(|l| l.contains("\"installdir\"")).and_then(|l| l.split('"').nth(3)) {
+                let game_path = folder.join("steamapps").join("common").join(dir_str);
+                if game_path.is_dir() {
+                    return Some(game_path);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<String, String> {
@@ -60,7 +93,11 @@ fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<String, String> {
             if (*file.name()).ends_with('/') {
                 fs::create_dir_all(&outpath).unwrap();
             } else {
-                if let Some(p) = outpath.parent() { if !p.exists() { fs::create_dir_all(&p).unwrap(); } }
+                if let Some(p) = outpath.parent() {
+                    if !p.exists() {
+                        fs::create_dir_all(&p).unwrap();
+                    }
+                }
                 let mut outfile = fs::File::create(&outpath).unwrap();
                 io::copy(&mut file, &mut outfile).unwrap();
             }
@@ -92,7 +129,9 @@ fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
 
         archive = if entry.is_file() {
             if let Some(p) = outpath.parent() {
-                if !p.exists() { fs::create_dir_all(&p).unwrap(); }
+                if !p.exists() {
+                    fs::create_dir_all(&p).unwrap();
+                }
             }
             header.extract_to(outpath)
                   .map_err(|e| format!("Failed to extract file from RAR: {:?}", e))?
@@ -102,8 +141,26 @@ fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
                   .map_err(|e| format!("Failed to process directory entry in RAR: {:?}", e))?
         };
     }
-
     Ok(primary_name)
+}
+
+// --- TAURI COMMANDS ---
+#[tauri::command]
+fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> {
+    let archive_path = Path::new(&archive_path_str);
+    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
+    
+    let game_path = find_game_path().ok_or_else(|| "Could not find the game installation path.".to_string())?;
+    let mods_path = game_path.join("GAMEDATA").join("MODS");
+    fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
+
+    let mod_name = match extension.as_str() {
+        "zip" => extract_zip(archive_path, &mods_path)?,
+        "rar" => extract_rar(archive_path, &mods_path)?,
+        _ => return Err(format!("Unsupported file type: .{}", extension)),
+    };
+    
+    Ok(mod_name)
 }
 
 #[tauri::command]
@@ -122,7 +179,9 @@ fn delete_settings_file() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn get_game_path() -> Option<String> { find_game_path().map(|p| p.to_string_lossy().into_owned()) }
+fn get_game_path() -> Option<String> {
+    find_game_path().map(|p| p.to_string_lossy().into_owned())
+}
 
 #[tauri::command]
 fn open_mods_folder() -> Result<(), String> {
@@ -131,61 +190,37 @@ fn open_mods_folder() -> Result<(), String> {
         fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
         open::that(&mods_path).map_err(|e| e.to_string())?;
         Ok(())
-    } else { Err("Game path not found.".to_string()) }
+    } else {
+        Err("Game path not found.".to_string())
+    }
 }
 
 #[tauri::command]
-fn save_file(file_path: String, content: String) -> Result<(), String> { fs::write(file_path, content).map_err(|e| e.to_string()) }
+fn save_file(file_path: String, content: String) -> Result<(), String> {
+    fs::write(file_path, content).map_err(|e| e.to_string())
+}
 
 #[tauri::command]
-fn minimize_window(app: tauri::AppHandle) { app.get_window("main").unwrap().minimize().unwrap(); }
+fn minimize_window(app: tauri::AppHandle) {
+    app.get_window("main").unwrap().minimize().unwrap();
+}
 
 #[tauri::command]
 fn toggle_maximize_window(app: tauri::AppHandle) {
     let window = app.get_window("main").unwrap();
-    if window.is_maximized().unwrap() { window.unmaximize().unwrap(); } 
-    else { window.maximize().unwrap(); }
+    if window.is_maximized().unwrap() {
+        window.unmaximize().unwrap();
+    } else {
+        window.maximize().unwrap();
+    }
 }
 
 #[tauri::command]
-fn close_window(app: tauri::AppHandle) { app.get_window("main").unwrap().close().unwrap(); }
-
-fn find_game_path() -> Option<PathBuf> { if cfg!(not(windows)) { return None; } find_steam_path().or_else(find_gog_path) }
-
-fn find_gog_path() -> Option<PathBuf> {
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let gog_key = hklm.open_subkey(r"SOFTWARE\WOW6432Node\GOG.com\Games\1446223351").ok()?;
-    let game_path_str: String = gog_key.get_value("PATH").ok()?;
-    let game_path = PathBuf::from(game_path_str);
-    if game_path.join("Binaries").is_dir() { Some(game_path) } else { None }
+fn close_window(app: tauri::AppHandle) {
+    app.get_window("main").unwrap().close().unwrap();
 }
 
-fn find_steam_path() -> Option<PathBuf> {
-    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-    let steam_key = hklm.open_subkey(r"SOFTWARE\WOW6432Node\Valve\Steam").ok()?;
-    let steam_path_str: String = steam_key.get_value("InstallPath").ok()?;
-    let steam_path = PathBuf::from(steam_path_str);
-    let mut library_folders = vec![steam_path.clone()];
-    if let Ok(content) = fs::read_to_string(steam_path.join("steamapps").join("libraryfolders.vdf")) {
-        for line in content.lines() {
-            if let Some(path_str) = line.split('"').nth(3) {
-                let p = PathBuf::from(path_str.replace("\\\\", "\\"));
-                if p.exists() { library_folders.push(p); }
-            }
-        }
-    }
-    for folder in library_folders {
-        let manifest_path = folder.join("steamapps").join("appmanifest_275850.acf");
-        if let Ok(content) = fs::read_to_string(manifest_path) {
-            if let Some(dir_str) = content.lines().find(|l| l.contains("\"installdir\"")).and_then(|l| l.split('"').nth(3)) {
-                let game_path = folder.join("steamapps").join("common").join(dir_str);
-                if game_path.is_dir() { return Some(game_path); }
-            }
-        }
-    }
-    None
-}
-
+// --- MAIN FUNCTION ---
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -206,13 +241,13 @@ fn main() {
                 tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) | tauri::WindowEvent::CloseRequested { .. } => {
                     let window = event.window();
                     let is_maximized = window.is_maximized().unwrap_or(false);
+
                     if !is_maximized {
                         let position = window.outer_position().unwrap();
-
                         let state = WindowState {
                             x: position.x,
                             y: position.y,
-                            maximized: is_maximized,
+                            maximized: false,
                         };
 
                         if let Ok(state_json) = serde_json::to_string(&state) {
@@ -238,8 +273,12 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            get_game_path, open_mods_folder, save_file,
-            minimize_window, toggle_maximize_window, close_window,
+            get_game_path,
+            open_mods_folder,
+            save_file,
+            minimize_window,
+            toggle_maximize_window,
+            close_window,
             delete_settings_file,
             install_mod_from_archive
         ])

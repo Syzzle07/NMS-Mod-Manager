@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resourcePath = await resolveResource(`locales/${lang}.json`);
                 const content = await readTextFile(resourcePath);
                 currentTranslations = JSON.parse(content);
-                
                 localStorage.setItem('selectedLanguage', lang);
                 this.updateUI();
             } catch (e) {
@@ -26,10 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 const attributeName = el.getAttribute('data-i18n-attr');
-
                 if (currentTranslations[key]) {
                     const translatedText = currentTranslations[key];
-
                     if (attributeName) {
                         el.setAttribute(attributeName, translatedText);
                     } else {
@@ -76,19 +73,180 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
     });
 
+    // --- MANUAL DRAG AND DROP LOGIC  ---
+    function onMouseMove(e) {
+        if (!ghostElement) return;
+
+        ghostElement.style.left = `${e.clientX - offsetX}px`;
+        ghostElement.style.top = `${e.clientY - offsetY}px`;
+
+        const allRows = Array.from(modListContainer.querySelectorAll('.mod-row:not(.is-dragging)'));
+        let nextElement = null;
+
+        for (const row of allRows) {
+            const rect = row.getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) {
+                nextElement = row;
+                break;
+            }
+        }
+
+        // --- The Visual Reordering Logic ---
+        if (nextElement) {
+            modListContainer.insertBefore(draggedElement, nextElement);
+        } else {
+            modListContainer.appendChild(draggedElement);
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!draggedElement || !ghostElement) {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            return;
+        }
+        const targetRow = document.querySelector('.mod-row.drag-over');
+        if (targetRow && targetRow !== draggedElement) {
+            const draggedModName = draggedElement.dataset.modName;
+            const targetModName = targetRow.dataset.modName;
+            reorderMods(draggedModName, targetModName);
+        } else {
+            draggedElement.classList.remove('is-dragging');
+        }
+        document.body.removeChild(ghostElement);
+        if (targetRow) targetRow.classList.remove('drag-over');
+        draggedElement = null;
+        ghostElement = null;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    let draggedElement = null;
+    let ghostElement = null;
+    let placeholder = null;
+    let offsetX = 0;
+    let offsetY = 0;
+    let originalNextSibling = null;
+
+    modListContainer.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.switch')) {
+            return;
+        }
+        const row = e.target.closest('.mod-row');
+        if (!row || e.button !== 0) return;
+
+        e.preventDefault();
+
+        draggedElement = row;
+        originalNextSibling = draggedElement.nextSibling;
+
+        const rect = draggedElement.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+
+        placeholder = document.createElement('div');
+        placeholder.className = 'placeholder';
+        placeholder.style.height = `${rect.height}px`;
+
+        ghostElement = draggedElement.cloneNode(true);
+        ghostElement.classList.add('ghost');
+        document.body.appendChild(ghostElement);
+        ghostElement.style.width = `${rect.width}px`;
+        ghostElement.style.left = `${e.clientX - offsetX}px`;
+        ghostElement.style.top = `${e.clientY - offsetY}px`;
+        
+        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+        draggedElement.classList.add('is-dragging');
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+
+    function onMouseMove(e) {
+        if (!ghostElement || !placeholder) return;
+
+        ghostElement.style.left = `${e.clientX - offsetX}px`;
+        ghostElement.style.top = `${e.clientY - offsetY}px`;
+
+        const allRows = Array.from(modListContainer.querySelectorAll('.mod-row:not(.is-dragging)'));
+        let nextElement = null;
+
+        for (const row of allRows) {
+            const rect = row.getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) {
+                nextElement = row;
+                break;
+            }
+        }
+
+        if (nextElement) {
+            modListContainer.insertBefore(placeholder, nextElement);
+        } else {
+            modListContainer.appendChild(placeholder);
+        }
+    }
+
+    function onMouseUp(e) {
+        if (!draggedElement || !ghostElement || !placeholder) {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            return;
+        }
+
+        const dropTarget = e.target.closest('#modListContainer');
+        
+        if (dropTarget) {
+            placeholder.parentNode.insertBefore(draggedElement, placeholder);
+            
+            const finalModOrder = Array.from(modListContainer.querySelectorAll('.mod-row')).map(row => row.dataset.modName);
+            reorderModsByList(finalModOrder);
+
+        } else {
+            modListContainer.insertBefore(draggedElement, originalNextSibling);
+            renderModList(); 
+        }
+
+        draggedElement.classList.remove('is-dragging');
+        document.body.removeChild(ghostElement);
+        if (placeholder.parentNode) {
+            placeholder.parentNode.removeChild(placeholder);
+        }
+        
+        draggedElement = null;
+        ghostElement = null;
+        placeholder = null;
+        originalNextSibling = null;
+
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    // --- reorderMods Function ---
+    const reorderModsByList = (orderedModNames) => {
+        const allModNodes = Array.from(xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]'));
+
+        orderedModNames.forEach((modName, newPriority) => {
+            const modNode = allModNodes.find(node => unescapeXml(node.querySelector('Property[name="Name"]').getAttribute('value')) === modName);
+            if (modNode) {
+                const priorityNode = modNode.querySelector('Property[name="ModPriority"]');
+                if (priorityNode) {
+                    priorityNode.setAttribute('value', newPriority.toString());
+                }
+            }
+        });
+
+        // Save the changes and then re-render the list to update priority numbers in the UI
+        saveChanges();
+        renderModList();
+    };
+
     const filterModList = () => {
-    // Get the search term and convert to lower case for case-insensitive matching
-    const searchTerm = searchModsInput.value.trim().toLowerCase();
-
-    // Get all the mod row elements from the container
-    const modRows = modListContainer.querySelectorAll('.mod-row');
-
+        const searchTerm = searchModsInput.value.trim().toLowerCase();
+        const modRows = modListContainer.querySelectorAll('.mod-row');
         modRows.forEach(row => {
             const modNameElement = row.querySelector('.mod-name');
             if (modNameElement) {
                 const modName = modNameElement.textContent.toLowerCase();
-
-                // If the mod name includes the search term, show it. Otherwise, hide it.
                 if (modName.includes(searchTerm)) {
                     row.style.display = 'flex';
                 } else {
@@ -103,20 +261,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedLang = localStorage.getItem('selectedLanguage') || 'en';
         languageSelector.value = savedLang;
         await i18n.loadLanguage(savedLang);
-        
         gamePath = await invoke('get_game_path');
         const hasGamePath = !!gamePath;
         openModsFolderBtn.disabled = !hasGamePath;
         troubleshootBtn.disabled = !hasGamePath;
         dropZone.classList.toggle('hidden', !hasGamePath);
-
         if (!hasGamePath) {
             const title = "Could not find NMS installation path";
             openModsFolderBtn.title = title;
             troubleshootBtn.title = title;
             return;
         }
-
         try {
             const settingsPath = await join(gamePath, 'Binaries', 'SETTINGS', 'GCMODSETTINGS.MXML');
             const content = await readTextFile(settingsPath);
@@ -132,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadXmlContent = async (content, path) => {
         currentFilePath = path;
         const fileNameWithExt = await basename(currentFilePath);
-        // This line removes the extension from the filename
         const fileNameWithoutExt = fileNameWithExt.slice(0, fileNameWithExt.lastIndexOf('.'));
         filePathLabel.textContent = i18n.get('editingFile', { fileName: fileNameWithoutExt });
         xmlDoc = new DOMParser().parseFromString(content, "application/xml");
@@ -148,17 +302,22 @@ document.addEventListener('DOMContentLoaded', () => {
             disableAllSwitch.disabled = false;
         }
         const modNodes = xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]');
-        modNodes.forEach(modNode => {
-            const name = unescapeXml(modNode.querySelector('Property[name="Name"]')?.getAttribute('value') || 'Unknown Mod'),
-                  priority = modNode.querySelector('Property[name="ModPriority"]')?.getAttribute('value') || '0',
-                  enabled = modNode.querySelector('Property[name="Enabled"]')?.getAttribute('value').toLowerCase() === 'true';
+        const modsToRender = Array.from(modNodes).map(modNode => {
+            const priority = parseInt(modNode.querySelector('Property[name="ModPriority"]')?.getAttribute('value') || '0', 10);
+            return { modNode, priority };
+        }).sort((a, b) => a.priority - b.priority);
+        modsToRender.forEach(({ modNode }) => {
+            const name = unescapeXml(modNode.querySelector('Property[name="Name"]')?.getAttribute('value') || 'Unknown Mod');
+            const priority = modNode.querySelector('Property[name="ModPriority"]')?.getAttribute('value') || '0';
+            const enabled = modNode.querySelector('Property[name="Enabled"]')?.getAttribute('value').toLowerCase() === 'true';
             const row = document.createElement('div');
             row.className = 'mod-row';
-            row.innerHTML = `<span class="mod-name">${name}</span><div class="priority"><input type="text" class="priority-input" value="${priority}"></div><div class="enabled"><label class="switch"><input type="checkbox" class="enabled-switch" ${enabled ? 'checked' : ''}><span class="slider"></span></label></div>`;
-            row.querySelector('.priority-input').addEventListener('input', (e) => {
-                const pNode = modNode.querySelector('Property[name="ModPriority"]');
-                if (pNode) { pNode.setAttribute('value', e.target.value); saveChanges(); }
-            });
+            row.dataset.modName = name;
+            row.innerHTML = `
+                <span class="mod-name">${name}</span>
+                <div class="priority"><input type="text" class="priority-input" value="${priority}" readonly></div>
+                <div class="enabled"><label class="switch"><input type="checkbox" class="enabled-switch" ${enabled ? 'checked' : ''}><span class="slider"></span></label></div>
+            `;
             row.querySelector('.enabled-switch').addEventListener('change', (e) => {
                 const newVal = e.target.checked ? 'true' : 'false';
                 const eNode = modNode.querySelector('Property[name="Enabled"]');
@@ -173,46 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
         filterModList();
     };
 
-    /* Escape special characters */
-    const escapeXml = (unsafe) => {
-        return unsafe.replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&apos;");
-    };
-
-    /* Unescapes special characters for display in the UI. */
-    const unescapeXml = (safe) => {
-        return safe.replace(/&amp;/g, "&")
-                  .replace(/&lt;/g, "<")
-                  .replace(/&gt;/g, ">")
-                  .replace(/&quot;/g, "\"")
-                  .replace(/&apos;/g, "'");
-    };
-    
-    /* Pretty-print XML */
-    const formatNode = (node, indentLevel) => {
-        const indent = '  '.repeat(indentLevel);
-        const attributes = Array.from(node.attributes)
-            .map(attr => `${attr.name}="${attr.value}"`)
-            .join(' ');
-        
-        const tag = node.tagName;
-        let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
-
-        if (node.children.length > 0) {
-            nodeString += '>\n';
-            for (const child of node.children) {
-                nodeString += formatNode(child, indentLevel + 1);
-            }
-            nodeString += `${indent}</${tag}>\n`;
-        } else {
-            nodeString += ' />\n';
-        }
-        return nodeString;
-    };
-    
     const saveChanges = async () => {
         if (isPopulating || !currentFilePath || !xmlDoc) return;
         const formattedXmlString = formatNode(xmlDoc.documentElement, 0);
@@ -226,10 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addNewModToXml = (modName) => {
         if (!xmlDoc || !modName) return;
         const dataContainer = xmlDoc.querySelector('Property[name="Data"]');
-        if (!dataContainer) {
-            console.error("Could not find the main 'Data' container in the XML.");
-            return;
-        }
+        if (!dataContainer) { return; }
         const allMods = dataContainer.querySelectorAll('Property[value="GcModSettingsInfo"]');
         let maxIndex = -1;
         let maxPriority = -1;
@@ -264,6 +380,29 @@ document.addEventListener('DOMContentLoaded', () => {
         dataContainer.appendChild(newMod);
         renderModList();
         saveChanges();
+    };
+
+    const escapeXml = (unsafe) => {
+        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    };
+    const unescapeXml = (safe) => {
+        return safe.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'");
+    };
+    const formatNode = (node, indentLevel) => {
+        const indent = '  '.repeat(indentLevel);
+        const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${attr.value}"`).join(' ');
+        const tag = node.tagName;
+        let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
+        if (node.children.length > 0) {
+            nodeString += '>\n';
+            for (const child of node.children) {
+                nodeString += formatNode(child, indentLevel + 1);
+            }
+            nodeString += `${indent}</${tag}>\n`;
+        } else {
+            nodeString += ' />\n';
+        }
+        return nodeString;
     };
 
     loadFileBtn.addEventListener('click', async () => {
@@ -304,7 +443,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const setupDragAndDrop = async () => {
+        let isModDragInProgress = false; 
         await appWindow.onFileDropEvent(async (event) => {
+            if (document.body.classList.contains('mod-drag-active')) {
+                return;
+            }
             if (event.payload.type === 'hover') {
                 dropZone.classList.add('drag-over');
             } else if (event.payload.type === 'drop') {
@@ -337,14 +480,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-    
+
     languageSelector.addEventListener('change', (e) => {
         i18n.loadLanguage(e.target.value);
     });
     
-    document.body.addEventListener('dragover', e => e.preventDefault());
-    document.body.addEventListener('drop', e => e.preventDefault());
-
+    // --- INITIALIZE APP ---
     initializeApp();
     setupDragAndDrop();
 });
