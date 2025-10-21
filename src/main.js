@@ -7,6 +7,14 @@ import { appWindow } from "@tauri-apps/api/window";
 document.addEventListener('DOMContentLoaded', () => {
     let gamePath = null, currentFilePath = null, xmlDoc = null, isPopulating = false;
     let currentTranslations = {};
+    
+    // --- Manual Drag and Drop State Variables ---
+    let draggedElement = null;
+    let ghostElement = null;
+    let placeholder = null;
+    let offsetX = 0;
+    let offsetY = 0;
+    let originalNextSibling = null;
 
     const i18n = {
         async loadLanguage(lang) {
@@ -73,104 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
     });
 
-    // --- MANUAL DRAG AND DROP LOGIC  ---
-    function onMouseMove(e) {
-        if (!ghostElement) return;
-
-        ghostElement.style.left = `${e.clientX - offsetX}px`;
-        ghostElement.style.top = `${e.clientY - offsetY}px`;
-
-        const allRows = Array.from(modListContainer.querySelectorAll('.mod-row:not(.is-dragging)'));
-        let nextElement = null;
-
-        for (const row of allRows) {
-            const rect = row.getBoundingClientRect();
-            if (e.clientY < rect.top + rect.height / 2) {
-                nextElement = row;
-                break;
-            }
-        }
-
-        // --- The Visual Reordering Logic ---
-        if (nextElement) {
-            modListContainer.insertBefore(draggedElement, nextElement);
-        } else {
-            modListContainer.appendChild(draggedElement);
-        }
-    }
-
-    function onMouseUp(e) {
-        if (!draggedElement || !ghostElement) {
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', onMouseUp);
-            return;
-        }
-        const targetRow = document.querySelector('.mod-row.drag-over');
-        if (targetRow && targetRow !== draggedElement) {
-            const draggedModName = draggedElement.dataset.modName;
-            const targetModName = targetRow.dataset.modName;
-            reorderMods(draggedModName, targetModName);
-        } else {
-            draggedElement.classList.remove('is-dragging');
-        }
-        document.body.removeChild(ghostElement);
-        if (targetRow) targetRow.classList.remove('drag-over');
-        draggedElement = null;
-        ghostElement = null;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-    }
-
-    let draggedElement = null;
-    let ghostElement = null;
-    let placeholder = null;
-    let offsetX = 0;
-    let offsetY = 0;
-    let originalNextSibling = null;
-
-    modListContainer.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.switch')) {
-            return;
-        }
-        const row = e.target.closest('.mod-row');
-        if (!row || e.button !== 0) return;
-
-        e.preventDefault();
-
-        draggedElement = row;
-        originalNextSibling = draggedElement.nextSibling;
-
-        const rect = draggedElement.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-
-        placeholder = document.createElement('div');
-        placeholder.className = 'placeholder';
-        placeholder.style.height = `${rect.height}px`;
-
-        ghostElement = draggedElement.cloneNode(true);
-        ghostElement.classList.add('ghost');
-        document.body.appendChild(ghostElement);
-        ghostElement.style.width = `${rect.width}px`;
-        ghostElement.style.left = `${e.clientX - offsetX}px`;
-        ghostElement.style.top = `${e.clientY - offsetY}px`;
-        
-        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-        draggedElement.classList.add('is-dragging');
-
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    });
-
+    // --- MANUAL DRAG AND DROP LOGIC ---
     function onMouseMove(e) {
         if (!ghostElement || !placeholder) return;
-
         ghostElement.style.left = `${e.clientX - offsetX}px`;
         ghostElement.style.top = `${e.clientY - offsetY}px`;
-
         const allRows = Array.from(modListContainer.querySelectorAll('.mod-row:not(.is-dragging)'));
         let nextElement = null;
-
         for (const row of allRows) {
             const rect = row.getBoundingClientRect();
             if (e.clientY < rect.top + rect.height / 2) {
@@ -178,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
-
         if (nextElement) {
             modListContainer.insertBefore(placeholder, nextElement);
         } else {
@@ -192,53 +108,54 @@ document.addEventListener('DOMContentLoaded', () => {
             document.removeEventListener('mouseup', onMouseUp);
             return;
         }
-
         const dropTarget = e.target.closest('#modListContainer');
-        
         if (dropTarget) {
             placeholder.parentNode.insertBefore(draggedElement, placeholder);
-            
             const finalModOrder = Array.from(modListContainer.querySelectorAll('.mod-row')).map(row => row.dataset.modName);
             reorderModsByList(finalModOrder);
-
         } else {
             modListContainer.insertBefore(draggedElement, originalNextSibling);
             renderModList(); 
         }
-
         draggedElement.classList.remove('is-dragging');
         document.body.removeChild(ghostElement);
         if (placeholder.parentNode) {
             placeholder.parentNode.removeChild(placeholder);
         }
-        
         draggedElement = null;
         ghostElement = null;
         placeholder = null;
         originalNextSibling = null;
-
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
     }
 
-    // --- reorderMods Function ---
-    const reorderModsByList = (orderedModNames) => {
-        const allModNodes = Array.from(xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]'));
-
-        orderedModNames.forEach((modName, newPriority) => {
-            const modNode = allModNodes.find(node => unescapeXml(node.querySelector('Property[name="Name"]').getAttribute('value')) === modName);
-            if (modNode) {
-                const priorityNode = modNode.querySelector('Property[name="ModPriority"]');
-                if (priorityNode) {
-                    priorityNode.setAttribute('value', newPriority.toString());
-                }
-            }
-        });
-
-        // Save the changes and then re-render the list to update priority numbers in the UI
-        saveChanges();
-        renderModList();
-    };
+    modListContainer.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.switch')) {
+            return;
+        }
+        const row = e.target.closest('.mod-row');
+        if (!row || e.button !== 0) return;
+        e.preventDefault();
+        draggedElement = row;
+        originalNextSibling = draggedElement.nextSibling;
+        const rect = draggedElement.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        placeholder = document.createElement('div');
+        placeholder.className = 'placeholder';
+        placeholder.style.height = `${rect.height}px`;
+        ghostElement = draggedElement.cloneNode(true);
+        ghostElement.classList.add('ghost');
+        document.body.appendChild(ghostElement);
+        ghostElement.style.width = `${rect.width}px`;
+        ghostElement.style.left = `${e.clientX - offsetX}px`;
+        ghostElement.style.top = `${e.clientY - offsetY}px`;
+        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+        draggedElement.classList.add('is-dragging');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
 
     const filterModList = () => {
         const searchTerm = searchModsInput.value.trim().toLowerCase();
@@ -330,6 +247,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         isPopulating = false;
         filterModList();
+    };
+
+    const reorderModsByList = (orderedModNames) => {
+        const allModNodes = Array.from(xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]'));
+        orderedModNames.forEach((modName, newPriority) => {
+            const modNode = allModNodes.find(node => unescapeXml(node.querySelector('Property[name="Name"]').getAttribute('value')) === modName);
+            if (modNode) {
+                const priorityNode = modNode.querySelector('Property[name="ModPriority"]');
+                if (priorityNode) {
+                    priorityNode.setAttribute('value', newPriority.toString());
+                }
+            }
+        });
+        saveChanges();
+        renderModList();
     };
 
     const saveChanges = async () => {
@@ -443,9 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const setupDragAndDrop = async () => {
-        let isModDragInProgress = false; 
         await appWindow.onFileDropEvent(async (event) => {
-            if (document.body.classList.contains('mod-drag-active')) {
+            if (draggedElement) {
                 return;
             }
             if (event.payload.type === 'hover') {
@@ -461,17 +392,49 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(i18n.get('alertNoZipsDropped'));
                     return;
                 }
+
                 for (const filePath of archiveFiles) {
+                    const fileName = await basename(filePath);
                     try {
-                        const modName = await invoke('install_mod_from_archive', { archivePathStr: filePath });
-                        if (modName && modName.length > 0) {
-                            addNewModToXml(modName);
-                            alert(i18n.get('alertExtractSuccess', { fileName: await basename(filePath) }));
-                        } else {
-                             alert(`Successfully extracted ${await basename(filePath)}, but could not determine a mod name to add to the list.`);
+                        const extractionResult = await invoke('install_mod_from_archive', { archivePathStr: filePath });
+                        const modsFound = extractionResult.mods;
+
+                        // Case 1: Rust found one or more mods automatically
+                        if (modsFound && modsFound.length > 0) {
+                            let installedModNames = [];
+                            for (const mod of modsFound) {
+                                addNewModToXml(mod.name);
+                                installedModNames.push(mod.name);
+                            }
+                            alert(`Successfully installed ${installedModNames.length} mod(s) from ${fileName}:\n\n- ${installedModNames.join('\n- ')}`);
+                        
+                        // Case 2: Rust found a messy archive and needs help
+                        } else if (extractionResult.temp_folder_path) {
+                            let finalModName = prompt(`Successfully extracted files from ${fileName}, but no valid mod structure was detected.\n\nPlease enter a name for this mod pack to create a containing folder (or leave blank to cancel):`);
+
+                            if (finalModName && finalModName.trim().length > 0) {
+                                finalModName = finalModName.trim();
+                                try {
+                                    // Tell Rust to rename the temp folder to the user's chosen name
+                                    await invoke('finalize_mod_installation', {
+                                        tempPath: extractionResult.temp_folder_path,
+                                        newName: finalModName
+                                    });
+                                    // If successful, add to the XML
+                                    addNewModToXml(finalModName);
+                                    alert(i18n.get('alertExtractSuccess', { fileName }));
+                                } catch (finalizeError) {
+                                    alert(`Error creating mod folder: ${finalizeError}`);
+                                    // Clean up the temp folder since finalization failed
+                                    await invoke('cleanup_temp_folder', { path: extractionResult.temp_folder_path });
+                                }
+                            } else {
+                                // User cancelled the prompt, so clean up the temp folder
+                                await invoke('cleanup_temp_folder', { path: extractionResult.temp_folder_path });
+                                alert(`Extracted files from ${fileName}, but nothing was added to the mod list.`);
+                            }
                         }
                     } catch (error) {
-                        const fileName = await basename(filePath);
                         alert(i18n.get('alertExtractError', { fileName, error }));
                     }
                 }
@@ -480,12 +443,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-
+    
     languageSelector.addEventListener('change', (e) => {
         i18n.loadLanguage(e.target.value);
     });
     
-    // --- INITIALIZE APP ---
     initializeApp();
     setupDragAndDrop();
 });

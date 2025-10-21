@@ -4,7 +4,6 @@
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use tauri::{Manager, PhysicalPosition};
 use winreg::enums::*;
@@ -18,6 +17,18 @@ struct WindowState {
     x: i32,
     y: i32,
     maximized: bool,
+}
+
+#[derive(serde::Serialize)]
+struct ModInfo {
+    name: String,
+    folder_name: String,
+}
+
+#[derive(serde::Serialize)]
+struct ExtractionResult {
+    mods: Vec<ModInfo>,
+    temp_folder_path: Option<String>,
 }
 
 // --- HELPER FUNCTIONS ---
@@ -76,77 +87,86 @@ fn find_steam_path() -> Option<PathBuf> {
     None
 }
 
-fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<String, String> {
-    let file = fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
-    let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
-    let mut primary_name = String::new();
+// --- HELPER FUNCTION ---
+fn process_extracted_folder(extract_target_path: PathBuf) -> Result<ExtractionResult, String> {
+    let mut mods_found = Vec::new();
+    let mut temp_path_for_js: Option<String> = None;
 
-    if let Some(file) = archive.file_names().find(|name| name.ends_with(".pak") && !name.contains('/')) {
-        primary_name = Path::new(file).file_stem().unwrap().to_string_lossy().to_uppercase();
-    } else if let Some(dir) = archive.file_names().find(|name| name.ends_with('/') && name.matches('/').count() == 1) {
-        primary_name = dir.trim_end_matches('/').to_uppercase();
-    }
+    let entries: Vec<_> = fs::read_dir(&extract_target_path)
+        .map_err(|e| e.to_string())?
+        .filter_map(Result::ok)
+        .collect();
 
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i).unwrap();
-        if let Some(outpath) = file.enclosed_name().map(|p| dest_path.join(p)) {
-            if (*file.name()).ends_with('/') {
-                fs::create_dir_all(&outpath).unwrap();
-            } else {
-                if let Some(p) = outpath.parent() {
-                    if !p.exists() {
-                        fs::create_dir_all(&p).unwrap();
-                    }
-                }
-                let mut outfile = fs::File::create(&outpath).unwrap();
-                io::copy(&mut file, &mut outfile).unwrap();
-            }
+    // Scenario 1: Single folder found
+    if entries.len() == 1 && entries.first().unwrap().path().is_dir() {
+        let single_folder_path = entries.first().unwrap().path();
+        let original_folder_name = single_folder_path.file_name().unwrap().to_string_lossy().into_owned();
+        mods_found.push(ModInfo {
+            name: original_folder_name.clone(),
+            folder_name: original_folder_name,
+        });
+    
+    // Scenario 2: Multiple folders found
+    } else if entries.iter().all(|entry| entry.path().is_dir()) {
+        for entry in entries {
+            let original_folder_name = entry.file_name().to_string_lossy().into_owned();
+            mods_found.push(ModInfo {
+                name: original_folder_name.clone(),
+                folder_name: original_folder_name,
+            });
         }
+    
+    // Scenario 3: Messy archive - NEW LOGIC
+    } else {
+        temp_path_for_js = Some(extract_target_path.to_string_lossy().into_owned());
     }
-    Ok(primary_name)
+
+    // Move final mod folders if any were found
+    for mod_info in &mods_found {
+        let source_path = extract_target_path.join(&mod_info.folder_name);
+        let dest_path = extract_target_path.parent().unwrap().join(&mod_info.folder_name);
+        fs::rename(source_path, dest_path).map_err(|e| e.to_string())?;
+    }
+
+    // IMPORTANT: Only clean up the temp folder if successfully identified mods.
+    // If it was a messy archive, leave the temp folder for JavaScript to deal with.
+    if temp_path_for_js.is_none() {
+        fs::remove_dir_all(&extract_target_path).ok();
+    }
+
+    Ok(ExtractionResult {
+        mods: mods_found,
+        temp_folder_path: temp_path_for_js,
+    })
 }
 
-fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<String, String> {
-    let mut archive = unrar::Archive::new(rar_path)
-        .open_for_processing()
-        .map_err(|e| format!("Failed to open RAR: {:?}", e))?;
-    let mut primary_name = String::new();
 
+fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<ExtractionResult, String> {
+    let file = fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+    
+    let temp_extract_path = dest_path.join(format!("temp_zip_{}", chrono::Utc::now().timestamp_millis()));
+    fs::create_dir_all(&temp_extract_path).map_err(|e| e.to_string())?;
+    archive.extract(&temp_extract_path).map_err(|e| e.to_string())?;
+
+    process_extracted_folder(temp_extract_path)
+}
+
+fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<ExtractionResult, String> {
+    let temp_extract_path = dest_path.join(format!("temp_rar_{}", chrono::Utc::now().timestamp_millis()));
+    fs::create_dir_all(&temp_extract_path).map_err(|e| e.to_string())?;
+
+    let mut archive = unrar::Archive::new(rar_path).open_for_processing().map_err(|e| format!("Failed to open RAR: {:?}", e))?;
     while let Ok(Some(header)) = archive.read_header() {
-        let entry = header.entry();
-        let filename_str = entry.filename.to_string_lossy().to_string();
-        let outpath = dest_path.join(&filename_str);
-
-        if primary_name.is_empty() {
-            if filename_str.to_lowercase().ends_with(".pak") && !filename_str.contains('\\') && !filename_str.contains('/') {
-                primary_name = Path::new(&filename_str).file_stem().unwrap().to_string_lossy().to_uppercase();
-            } else if let Some(root_dir) = filename_str.split(&['\\', '/'][..]).next() {
-                if !root_dir.is_empty() {
-                    primary_name = root_dir.to_uppercase();
-                }
-            }
-        }
-
-        archive = if entry.is_file() {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(&p).unwrap();
-                }
-            }
-            header.extract_to(outpath)
-                  .map_err(|e| format!("Failed to extract file from RAR: {:?}", e))?
-        } else {
-            fs::create_dir_all(&outpath).unwrap();
-            header.skip()
-                  .map_err(|e| format!("Failed to process directory entry in RAR: {:?}", e))?
-        };
+        archive = header.extract_to(&temp_extract_path).map_err(|e| format!("Failed to extract from RAR: {:?}", e))?;
     }
-    Ok(primary_name)
+    
+    process_extracted_folder(temp_extract_path)
 }
 
 // --- TAURI COMMANDS ---
 #[tauri::command]
-fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> {
+fn install_mod_from_archive(archive_path_str: String) -> Result<ExtractionResult, String> {
     let archive_path = Path::new(&archive_path_str);
     let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
     
@@ -154,13 +174,11 @@ fn install_mod_from_archive(archive_path_str: String) -> Result<String, String> 
     let mods_path = game_path.join("GAMEDATA").join("MODS");
     fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
 
-    let mod_name = match extension.as_str() {
-        "zip" => extract_zip(archive_path, &mods_path)?,
-        "rar" => extract_rar(archive_path, &mods_path)?,
-        _ => return Err(format!("Unsupported file type: .{}", extension)),
-    };
-    
-    Ok(mod_name)
+    match extension.as_str() {
+        "zip" => extract_zip(archive_path, &mods_path),
+        "rar" => extract_rar(archive_path, &mods_path),
+        _ => Err(format!("Unsupported file type: .{}", extension)),
+    }
 }
 
 #[tauri::command]
@@ -218,6 +236,34 @@ fn toggle_maximize_window(app: tauri::AppHandle) {
 #[tauri::command]
 fn close_window(app: tauri::AppHandle) {
     app.get_window("main").unwrap().close().unwrap();
+}
+
+#[tauri::command]
+fn finalize_mod_installation(temp_path: String, new_name: String) -> Result<(), String> {
+    let temp_folder = PathBuf::from(temp_path);
+    if !temp_folder.exists() {
+        return Err("Temporary installation folder not found.".to_string());
+    }
+
+    // Get the parent MODS folder
+    let mods_path = temp_folder.parent().ok_or("Could not determine MODS folder path.")?;
+    let final_dest_path = mods_path.join(new_name);
+
+    if final_dest_path.exists() {
+        return Err(format!("A mod folder with the name '{}' already exists.", final_dest_path.file_name().unwrap().to_string_lossy()));
+    }
+
+    // Rename the temporary folder to the final name
+    fs::rename(temp_folder, final_dest_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn cleanup_temp_folder(path: String) -> Result<(), String> {
+    let temp_folder = PathBuf::from(path);
+    if temp_folder.exists() {
+        fs::remove_dir_all(temp_folder).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 // --- MAIN FUNCTION ---
@@ -280,7 +326,9 @@ fn main() {
             toggle_maximize_window,
             close_window,
             delete_settings_file,
-            install_mod_from_archive
+            install_mod_from_archive,
+            finalize_mod_installation,
+            cleanup_temp_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
