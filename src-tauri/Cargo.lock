@@ -1833,7 +1833,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nms-mod-manager"
-version = "1.0.5"
+version = "1.0.6"
 dependencies = [
  "chrono",
  "open 5.3.2",

@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
-        const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${attr.value}"`).join(' ');
+        const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
         const tag = node.tagName;
         let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
         if (node.children.length > 0) {
