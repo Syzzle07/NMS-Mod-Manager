@@ -92,44 +92,39 @@ fn process_extracted_folder(extract_target_path: PathBuf) -> Result<ExtractionRe
     let mut mods_found = Vec::new();
     let mut temp_path_for_js: Option<String> = None;
 
-    let entries: Vec<_> = fs::read_dir(&extract_target_path)
+    // --- Filter for directories INSTEAD of checking if ALL are directories ---
+    let folder_entries: Vec<_> = fs::read_dir(&extract_target_path)
         .map_err(|e| e.to_string())?
         .filter_map(Result::ok)
+        .filter(|entry| entry.path().is_dir())
         .collect();
 
-    // Scenario 1: Single folder found
-    if entries.len() == 1 && entries.first().unwrap().path().is_dir() {
-        let single_folder_path = entries.first().unwrap().path();
-        let original_folder_name = single_folder_path.file_name().unwrap().to_string_lossy().into_owned();
-        mods_found.push(ModInfo {
-            name: original_folder_name.clone(),
-            folder_name: original_folder_name,
-        });
-    
-    // Scenario 2: Multiple folders found
-    } else if entries.iter().all(|entry| entry.path().is_dir()) {
-        for entry in entries {
+    // Check if our filtered list of folders is empty or not.
+    if !folder_entries.is_empty() {
+        // We found one or more folders. Treat each one as a mod, ignoring any loose files.
+        for entry in folder_entries {
             let original_folder_name = entry.file_name().to_string_lossy().into_owned();
             mods_found.push(ModInfo {
                 name: original_folder_name.clone(),
                 folder_name: original_folder_name,
             });
         }
-    
-    // Scenario 3: Messy archive - NEW LOGIC
     } else {
+        // If, after filtering, there are NO folders, then it's a truly messy archive.
+        // Tell JavaScript where the files are so it can prompt the user.
         temp_path_for_js = Some(extract_target_path.to_string_lossy().into_owned());
     }
 
-    // Move final mod folders if any were found
     for mod_info in &mods_found {
         let source_path = extract_target_path.join(&mod_info.folder_name);
         let dest_path = extract_target_path.parent().unwrap().join(&mod_info.folder_name);
-        fs::rename(source_path, dest_path).map_err(|e| e.to_string())?;
+        if source_path.exists() {
+            fs::rename(source_path, dest_path).map_err(|e| e.to_string())?;
+        }
     }
 
-    // IMPORTANT: Only clean up the temp folder if successfully identified mods.
-    // If it was a messy archive, leave the temp folder for JavaScript to deal with.
+    // Clean up the temp folder (and any leftover files like readme.txt) 
+    // ONLY if we aren't waiting for user input.
     if temp_path_for_js.is_none() {
         fs::remove_dir_all(&extract_target_path).ok();
     }
