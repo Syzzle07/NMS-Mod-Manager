@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { open } from "@tauri-apps/api/dialog";
+import { open, confirm } from "@tauri-apps/api/dialog"; // Added 'confirm'
 import { readTextFile } from "@tauri-apps/api/fs";
 import { basename, join, resolveResource } from "@tauri-apps/api/path";
 import { appWindow } from "@tauri-apps/api/window";
@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetX = 0;
     let offsetY = 0;
     let originalNextSibling = null;
+
+    // --- All your existing code from here... (i18n, DOM elements, window controls, etc.) ---
+    // ... is unchanged and remains exactly as you provided it ...
+    // --- until the setupDragAndDrop function ---
 
     const i18n = {
         async loadLanguage(lang) {
@@ -81,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
     });
 
-    // --- MANUAL DRAG AND DROP LOGIC ---
+    // --- MANUAL DRAG AND DROP LOGIC (Unchanged) ---
     function onMouseMove(e) {
         if (!ghostElement || !placeholder) return;
         ghostElement.style.left = `${e.clientX - offsetX}px`;
@@ -314,12 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveChanges();
     };
 
-    const escapeXml = (unsafe) => {
-        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-    };
-    const unescapeXml = (safe) => {
-        return safe.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'");
-    };
+    const escapeXml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    const unescapeXml = (safe) => safe.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'");
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
         const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
@@ -396,44 +396,58 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const filePath of archiveFiles) {
                     const fileName = await basename(filePath);
                     try {
-                        const extractionResult = await invoke('install_mod_from_archive', { archivePathStr: filePath });
-                        const modsFound = extractionResult.mods;
+                        // --- REWORKED INSTALLATION FLOW ---
+                        const analysis = await invoke('install_mod_from_archive', { archivePathStr: filePath });
 
-                        // Case 1: Rust found one or more mods automatically
-                        if (modsFound && modsFound.length > 0) {
-                            let installedModNames = [];
-                            for (const mod of modsFound) {
-                                addNewModToXml(mod.name);
-                                installedModNames.push(mod.name);
-                            }
-                            alert(`Successfully installed ${installedModNames.length} mod(s) from ${fileName}:\n\n- ${installedModNames.join('\n- ')}`);
-                        
-                        // Case 2: Rust found a messy archive and needs help
-                        } else if (extractionResult.temp_folder_path) {
-                            let finalModName = prompt(`Successfully extracted files from ${fileName}, but no valid mod structure was detected.\n\nPlease enter a name for this mod pack to create a containing folder (or leave blank to cancel):`);
-
+                        // Case 1: Handle "messy" archives that need a name from the user.
+                        // This preserves your original feature.
+                        if (analysis.messy_archive_path) {
+                            let finalModName = prompt(`Successfully extracted files from ${fileName}, but no valid mod folder was found.\n\nPlease enter a name for this mod (or leave blank to cancel):`);
                             if (finalModName && finalModName.trim().length > 0) {
                                 finalModName = finalModName.trim();
-                                try {
-                                    // Tell Rust to rename the temp folder to the user's chosen name
-                                    await invoke('finalize_mod_installation', {
-                                        tempPath: extractionResult.temp_folder_path,
-                                        newName: finalModName
-                                    });
-                                    // If successful, add to the XML
-                                    addNewModToXml(finalModName);
-                                    alert(i18n.get('alertExtractSuccess', { fileName }));
-                                } catch (finalizeError) {
-                                    alert(`Error creating mod folder: ${finalizeError}`);
-                                    // Clean up the temp folder since finalization failed
-                                    await invoke('cleanup_temp_folder', { path: extractionResult.temp_folder_path });
-                                }
+                                await invoke('finalize_mod_installation', {
+                                    tempPath: analysis.messy_archive_path,
+                                    newName: finalModName
+                                });
+                                addNewModToXml(finalModName);
+                                alert(i18n.get('alertExtractSuccess', { fileName }));
                             } else {
-                                // User cancelled the prompt, so clean up the temp folder
-                                await invoke('cleanup_temp_folder', { path: extractionResult.temp_folder_path });
-                                alert(`Extracted files from ${fileName}, but nothing was added to the mod list.`);
+                                await invoke('cleanup_temp_folder', { path: analysis.messy_archive_path });
+                                alert(`Installation from ${fileName} was cancelled.`);
                             }
                         }
+
+                        // Case 2: Process mods that were installed successfully without conflict.
+                        if (analysis.successes && analysis.successes.length > 0) {
+                            const installedNames = analysis.successes.map(mod => mod.name);
+                            for (const mod of analysis.successes) {
+                                addNewModToXml(mod.name);
+                            }
+                            alert(`Successfully installed ${installedNames.length} new mod(s) from ${fileName}:\n\n- ${installedNames.join('\n- ')}`);
+                        }
+
+                        // Case 3: Process mods that conflict with existing ones.
+                        if (analysis.conflicts && analysis.conflicts.length > 0) {
+                            for (const conflict of analysis.conflicts) {
+                                const shouldReplace = await confirm(
+                                    `A mod named "${conflict.name}" is already installed. Do you want to replace it with the new version from ${fileName}?`,
+                                    { title: 'Mod Conflict', type: 'warning' }
+                                );
+
+                                await invoke('resolve_conflict', {
+                                    modName: conflict.name,
+                                    tempModPathStr: conflict.temp_path, // Corrected to match Rust
+                                    replace: shouldReplace
+                                });
+
+                                if (shouldReplace) {
+                                    alert(`Mod "${conflict.name}" was successfully updated.`);
+                                } else {
+                                    alert(`Update for mod "${conflict.name}" was cancelled.`);
+                                }
+                            }
+                        }
+
                     } catch (error) {
                         alert(i18n.get('alertExtractError', { fileName, error }));
                     }

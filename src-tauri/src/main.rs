@@ -1,15 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 // --- IMPORTS ---
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{Manager, PhysicalPosition};
+use unrar;
 use winreg::enums::*;
 use winreg::RegKey;
 use zip::ZipArchive;
-use unrar;
 
 // --- STRUCTS ---
 #[derive(Serialize, Deserialize)]
@@ -19,19 +20,26 @@ struct WindowState {
     maximized: bool,
 }
 
-#[derive(serde::Serialize)]
-struct ModInfo {
+// New struct to hold information about a single mod being installed from an archive
+#[derive(serde::Serialize, Clone)]
+struct ModInstallInfo {
     name: String,
-    folder_name: String,
+    // The path to the new version of the mod in a temporary "staging" area
+    temp_path: String,
 }
 
+// New struct to report the complete results of the archive analysis to JavaScript
 #[derive(serde::Serialize)]
-struct ExtractionResult {
-    mods: Vec<ModInfo>,
-    temp_folder_path: Option<String>,
+struct InstallationAnalysis {
+    // Mods that were new and installed without issue
+    successes: Vec<ModInstallInfo>,
+    // Mods that already exist and require user confirmation
+    conflicts: Vec<ModInstallInfo>,
+    // Path to a temporary folder if the archive was "messy" (no containing folder)
+    messy_archive_path: Option<String>,
 }
 
-// --- HELPER FUNCTIONS ---
+// --- HELPER FUNCTIONS (Unchanged) ---
 fn get_state_file_path() -> PathBuf {
     let exe_path = env::current_exe().expect("Failed to find executable path");
     let exe_dir = exe_path.parent().expect("Failed to get parent directory of executable");
@@ -87,95 +95,130 @@ fn find_steam_path() -> Option<PathBuf> {
     None
 }
 
-// --- HELPER FUNCTION ---
-fn process_extracted_folder(extract_target_path: PathBuf) -> Result<ExtractionResult, String> {
-    let mut mods_found = Vec::new();
-    let mut temp_path_for_js: Option<String> = None;
+// --- REWORKED MOD INSTALLATION LOGIC ---
 
-    // --- Filter for directories INSTEAD of checking if ALL are directories ---
-    let folder_entries: Vec<_> = fs::read_dir(&extract_target_path)
+/// Extracts a zip or rar archive to a new temporary directory inside the mods folder.
+fn extract_archive_to_temp(archive_path: &Path, mods_path: &Path) -> Result<PathBuf, String> {
+    let temp_extract_path = mods_path.join(format!("temp_extract_{}", Utc::now().timestamp_millis()));
+    fs::create_dir_all(&temp_extract_path).map_err(|e| e.to_string())?;
+
+    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
+    match extension.as_str() {
+        "zip" => {
+            let file = fs::File::open(archive_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
+            let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+            archive.extract(&temp_extract_path).map_err(|e| e.to_string())?;
+        }
+        "rar" => {
+            let mut archive = unrar::Archive::new(archive_path).open_for_processing().map_err(|e| format!("Failed to open RAR: {:?}", e))?;
+            while let Ok(Some(header)) = archive.read_header() {
+                archive = header.extract_to(&temp_extract_path).map_err(|e| format!("Failed to extract from RAR: {:?}", e))?;
+            }
+        }
+        _ => return Err(format!("Unsupported file type: .{}", extension)),
+    }
+    Ok(temp_extract_path)
+}
+
+#[tauri::command]
+fn install_mod_from_archive(archive_path_str: String) -> Result<InstallationAnalysis, String> {
+    let archive_path = Path::new(&archive_path_str);
+    let game_path = find_game_path().ok_or_else(|| "Could not find the game installation path.".to_string())?;
+    let mods_path = game_path.join("GAMEDATA").join("MODS");
+    fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
+
+    // 1. Extract archive to a temporary location for analysis
+    let temp_extract_path = extract_archive_to_temp(archive_path, &mods_path)?;
+
+    // 2. Analyze the extracted contents for valid mod folders
+    let folder_entries: Vec<_> = fs::read_dir(&temp_extract_path)
         .map_err(|e| e.to_string())?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().is_dir())
         .collect();
 
-    // Check if our filtered list of folders is empty or not.
-    if !folder_entries.is_empty() {
-        // We found one or more folders. Treat each one as a mod, ignoring any loose files.
-        for entry in folder_entries {
-            let original_folder_name = entry.file_name().to_string_lossy().into_owned();
-            mods_found.push(ModInfo {
-                name: original_folder_name.clone(),
-                folder_name: original_folder_name,
+    // 3. Handle "messy" archives (no containing folder)
+    if folder_entries.is_empty() {
+        // Return the path to JS so it can prompt the user for a name
+        return Ok(InstallationAnalysis {
+            successes: vec![],
+            conflicts: vec![],
+            messy_archive_path: Some(temp_extract_path.to_string_lossy().into_owned()),
+        });
+    }
+
+    // 4. Create a staging area for mods that have conflicts
+    let staging_path = mods_path.join(format!("temp_staging_{}", Utc::now().timestamp_millis()));
+    
+    let mut successes = Vec::new();
+    let mut conflicts = Vec::new();
+
+    for entry in folder_entries {
+        let mod_name = entry.file_name().to_string_lossy().into_owned();
+        let final_dest_path = mods_path.join(&mod_name);
+
+        if final_dest_path.exists() {
+            // CONFLICT: Move mod to the staging area to await user decision
+            if !staging_path.exists() {
+                 fs::create_dir_all(&staging_path).map_err(|e| e.to_string())?;
+            }
+            let staged_mod_path = staging_path.join(&mod_name);
+            fs::rename(entry.path(), &staged_mod_path).map_err(|e| e.to_string())?;
+            conflicts.push(ModInstallInfo {
+                name: mod_name,
+                temp_path: staged_mod_path.to_string_lossy().into_owned(),
+            });
+        } else {
+            // NEW MOD: Move directly to the final mods folder
+            fs::rename(entry.path(), &final_dest_path).map_err(|e| e.to_string())?;
+            successes.push(ModInstallInfo {
+                name: mod_name,
+                temp_path: final_dest_path.to_string_lossy().into_owned(),
             });
         }
-    } else {
-        // If, after filtering, there are NO folders, then it's a truly messy archive.
-        // Tell JavaScript where the files are so it can prompt the user.
-        temp_path_for_js = Some(extract_target_path.to_string_lossy().into_owned());
     }
 
-    for mod_info in &mods_found {
-        let source_path = extract_target_path.join(&mod_info.folder_name);
-        let dest_path = extract_target_path.parent().unwrap().join(&mod_info.folder_name);
-        if source_path.exists() {
-            fs::rename(source_path, dest_path).map_err(|e| e.to_string())?;
-        }
-    }
-
-    // Clean up the temp folder (and any leftover files like readme.txt) 
-    // ONLY if we aren't waiting for user input.
-    if temp_path_for_js.is_none() {
-        fs::remove_dir_all(&extract_target_path).ok();
-    }
-
-    Ok(ExtractionResult {
-        mods: mods_found,
-        temp_folder_path: temp_path_for_js,
+    // 5. Cleanup the initial extraction folder, which should now be empty
+    fs::remove_dir_all(&temp_extract_path).ok();
+    
+    Ok(InstallationAnalysis {
+        successes,
+        conflicts,
+        messy_archive_path: None,
     })
 }
 
-
-fn extract_zip(zip_path: &Path, dest_path: &Path) -> Result<ExtractionResult, String> {
-    let file = fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
-    let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
-    
-    let temp_extract_path = dest_path.join(format!("temp_zip_{}", chrono::Utc::now().timestamp_millis()));
-    fs::create_dir_all(&temp_extract_path).map_err(|e| e.to_string())?;
-    archive.extract(&temp_extract_path).map_err(|e| e.to_string())?;
-
-    process_extracted_folder(temp_extract_path)
-}
-
-fn extract_rar(rar_path: &Path, dest_path: &Path) -> Result<ExtractionResult, String> {
-    let temp_extract_path = dest_path.join(format!("temp_rar_{}", chrono::Utc::now().timestamp_millis()));
-    fs::create_dir_all(&temp_extract_path).map_err(|e| e.to_string())?;
-
-    let mut archive = unrar::Archive::new(rar_path).open_for_processing().map_err(|e| format!("Failed to open RAR: {:?}", e))?;
-    while let Ok(Some(header)) = archive.read_header() {
-        archive = header.extract_to(&temp_extract_path).map_err(|e| format!("Failed to extract from RAR: {:?}", e))?;
-    }
-    
-    process_extracted_folder(temp_extract_path)
-}
-
-// --- TAURI COMMANDS ---
 #[tauri::command]
-fn install_mod_from_archive(archive_path_str: String) -> Result<ExtractionResult, String> {
-    let archive_path = Path::new(&archive_path_str);
-    let extension = archive_path.extension().and_then(std::ffi::OsStr::to_str).unwrap_or("").to_lowercase();
-    
-    let game_path = find_game_path().ok_or_else(|| "Could not find the game installation path.".to_string())?;
+/// Handles the user's decision to either replace an existing mod or cancel the update.
+fn resolve_conflict(mod_name: String, temp_mod_path_str: String, replace: bool) -> Result<(), String> {
+    let game_path = find_game_path().ok_or_else(|| "Could not find game path.".to_string())?;
     let mods_path = game_path.join("GAMEDATA").join("MODS");
-    fs::create_dir_all(&mods_path).map_err(|e| e.to_string())?;
+    let final_mod_path = mods_path.join(&mod_name);
+    let temp_mod_path = PathBuf::from(&temp_mod_path_str);
 
-    match extension.as_str() {
-        "zip" => extract_zip(archive_path, &mods_path),
-        "rar" => extract_rar(archive_path, &mods_path),
-        _ => Err(format!("Unsupported file type: .{}", extension)),
+    if replace {
+        // User confirmed replacement: delete old, move new
+        if final_mod_path.exists() {
+            fs::remove_dir_all(&final_mod_path).map_err(|e| format!("Failed to remove old mod: {}", e))?;
+        }
+        fs::rename(&temp_mod_path, &final_mod_path).map_err(|e| format!("Failed to move new mod into place: {}", e))?;
+    } else {
+        // User cancelled: just delete the temporary folder for this new mod
+        fs::remove_dir_all(&temp_mod_path).map_err(|e| format!("Failed to cleanup temp mod folder: {}", e))?;
     }
+    
+    // Attempt to clean up the parent staging directory if it's now empty
+    if let Some(parent) = temp_mod_path.parent() {
+        if parent.exists() && parent.read_dir().map_or(false, |mut i| i.next().is_none()) {
+             fs::remove_dir(parent).ok();
+        }
+    }
+
+    Ok(())
 }
 
+
+// --- OTHER TAURI COMMANDS (Unchanged) ---
 #[tauri::command]
 fn delete_settings_file() -> Result<String, String> {
     if let Some(game_path) = find_game_path() {
@@ -239,16 +282,11 @@ fn finalize_mod_installation(temp_path: String, new_name: String) -> Result<(), 
     if !temp_folder.exists() {
         return Err("Temporary installation folder not found.".to_string());
     }
-
-    // Get the parent MODS folder
     let mods_path = temp_folder.parent().ok_or("Could not determine MODS folder path.")?;
     let final_dest_path = mods_path.join(new_name);
-
     if final_dest_path.exists() {
         return Err(format!("A mod folder with the name '{}' already exists.", final_dest_path.file_name().unwrap().to_string_lossy()));
     }
-
-    // Rename the temporary folder to the final name
     fs::rename(temp_folder, final_dest_path).map_err(|e| e.to_string())
 }
 
@@ -321,7 +359,8 @@ fn main() {
             toggle_maximize_window,
             close_window,
             delete_settings_file,
-            install_mod_from_archive,
+            install_mod_from_archive, // Reworked
+            resolve_conflict,         // New
             finalize_mod_installation,
             cleanup_temp_folder
         ])
