@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{Manager, PhysicalPosition};
+use tauri::{LogicalSize, Manager, PhysicalPosition};
 use unrar;
 use winreg::enums::*;
 use winreg::RegKey;
@@ -94,8 +94,6 @@ fn find_steam_path() -> Option<PathBuf> {
     }
     None
 }
-
-// --- REWORKED MOD INSTALLATION LOGIC ---
 
 /// Extracts a zip or rar archive to a new temporary directory inside the mods folder.
 fn extract_archive_to_temp(archive_path: &Path, mods_path: &Path) -> Result<PathBuf, String> {
@@ -299,6 +297,14 @@ fn cleanup_temp_folder(path: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn resize_window(window: tauri::Window, width: f64) -> Result<(), String> {
+    let current_height = window.outer_size().map_err(|e| e.to_string())?.height;
+    window.set_size(LogicalSize::new(width, current_height as f64))
+          .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // --- MAIN FUNCTION ---
 fn main() {
     tauri::Builder::default()
@@ -359,10 +365,11 @@ fn main() {
             toggle_maximize_window,
             close_window,
             delete_settings_file,
-            install_mod_from_archive, // Reworked
-            resolve_conflict,         // New
+            install_mod_from_archive,
+            resolve_conflict,        
             finalize_mod_installation,
-            cleanup_temp_folder
+            cleanup_temp_folder,
+            resize_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

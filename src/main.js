@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { open, confirm } from "@tauri-apps/api/dialog"; // Added 'confirm'
+import { open, confirm } from "@tauri-apps/api/dialog";
 import { readTextFile } from "@tauri-apps/api/fs";
 import { basename, join, resolveResource } from "@tauri-apps/api/path";
 import { appWindow } from "@tauri-apps/api/window";
@@ -16,10 +16,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetY = 0;
     let originalNextSibling = null;
 
-    // --- All your existing code from here... (i18n, DOM elements, window controls, etc.) ---
-    // ... is unchanged and remains exactly as you provided it ...
-    // --- until the setupDragAndDrop function ---
-
+    // --- Make the Window Wider based on Language ---
+    const mainContent = document.querySelector('.main-content');
+    const updateWindowSize = () => {
+        requestAnimationFrame(() => {
+            const originalWidth = mainContent.style.width;
+            mainContent.style.width = 'max-content';
+            const requiredWidth = mainContent.scrollWidth;
+            mainContent.style.width = originalWidth;
+            const finalWidth = Math.max(750, requiredWidth + 10);
+            invoke('resize_window', { width: finalWidth }).catch(console.error);
+        });
+    };
+    // --- Language Stuff ---
     const i18n = {
         async loadLanguage(lang) {
             try {
@@ -54,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 filePathLabel.textContent = this.get('noFileLoaded');
             }
+            updateWindowSize();
         },
         get(key, placeholders = {}) {
             let text = currentTranslations[key] || key;
@@ -75,17 +85,18 @@ document.addEventListener('DOMContentLoaded', () => {
           deleteSettingsBtn = document.getElementById('deleteSettingsBtn'),
           dropZone = document.getElementById('dropZone'),
           searchModsInput = document.getElementById('searchModsInput'),
-          languageSelector = document.getElementById('languageSelector');
+          languageSelector = document.getElementById('languageSelector'),
+          enableAllBtn = document.getElementById('enableAllBtn'),
+          disableAllBatchBtn = document.getElementById('disableAllBatchBtn');
     
     document.getElementById('minimizeBtn').addEventListener('click', () => appWindow.minimize());
-    document.getElementById('maximizeBtn').addEventListener('click', () => appWindow.toggleMaximize());
     document.getElementById('closeBtn').addEventListener('click', () => appWindow.close());
 
     window.addEventListener('contextmenu', (e) => {
         e.preventDefault();
     });
 
-    // --- MANUAL DRAG AND DROP LOGIC (Unchanged) ---
+    // --- MANUAL DRAG AND DROP LOGIC ---
     function onMouseMove(e) {
         if (!ghostElement || !placeholder) return;
         ghostElement.style.left = `${e.clientX - offsetX}px`;
@@ -186,13 +197,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasGamePath = !!gamePath;
         openModsFolderBtn.disabled = !hasGamePath;
         troubleshootBtn.disabled = !hasGamePath;
+        enableAllBtn.classList.toggle('disabled', !hasGamePath);
+        disableAllBatchBtn.classList.toggle('disabled', !hasGamePath);
         dropZone.classList.toggle('hidden', !hasGamePath);
         if (!hasGamePath) {
             const title = "Could not find NMS installation path";
             openModsFolderBtn.title = title;
             troubleshootBtn.title = title;
+            enableAllBtn.title = title;
+            disableAllBatchBtn.title = title;
             return;
         }
+        enableAllBtn.title = '';
+        disableAllBatchBtn.title = '';
         try {
             const settingsPath = await join(gamePath, 'Binaries', 'SETTINGS', 'GCMODSETTINGS.MXML');
             const content = await readTextFile(settingsPath);
@@ -203,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filePathLabel.textContent += " Game detected.";
             }
         }
+        updateWindowSize();
     };
 
     const loadXmlContent = async (content, path) => {
@@ -215,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderModList = () => {
+        if (!xmlDoc) return;
         isPopulating = true;
         modListContainer.innerHTML = '';
         const disableAllNode = xmlDoc.querySelector('Property[name="DisableAllMods"]');
@@ -278,6 +297,36 @@ document.addEventListener('DOMContentLoaded', () => {
         catch (e) { alert(`Error saving file: ${e}`); }
     };
 
+    /* Sets the enabled state for all individual mods. */
+    const setAllModsEnabled = (enabled) => {
+        if (!xmlDoc) {
+            alert("Please load a GCMODSETTINGS file first.");
+            return;
+        }
+
+        const modNodes = xmlDoc.querySelectorAll('Property[name="Data"] > Property[value="GcModSettingsInfo"]');
+        if (modNodes.length === 0) return;
+
+        const newValue = enabled ? 'true' : 'false';
+
+        modNodes.forEach(modNode => {
+            const enabledNode = modNode.querySelector('Property[name="Enabled"]');
+            const enabledVRNode = modNode.querySelector('Property[name="EnabledVR"]');
+            if (enabledNode) {
+                enabledNode.setAttribute('value', newValue);
+            }
+            if (enabledVRNode) {
+                enabledVRNode.setAttribute('value', newValue);
+            }
+        });
+
+        saveChanges();
+        renderModList();
+    };
+
+    enableAllBtn.addEventListener('click', () => setAllModsEnabled(true));
+    disableAllBatchBtn.addEventListener('click', () => setAllModsEnabled(false));
+
     const addNewModToXml = (modName) => {
         if (!xmlDoc || !modName) return;
         const dataContainer = xmlDoc.querySelector('Property[name="Data"]');
@@ -318,8 +367,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveChanges();
     };
 
-    const escapeXml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-    const unescapeXml = (safe) => safe.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'");
+    const escapeXml = (unsafe) => {
+        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    };
+    const unescapeXml = (safe) => {
+        return safe.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&apos;/g, "'");
+    };
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
         const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
@@ -396,11 +449,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (const filePath of archiveFiles) {
                     const fileName = await basename(filePath);
                     try {
-                        // --- REWORKED INSTALLATION FLOW ---
                         const analysis = await invoke('install_mod_from_archive', { archivePathStr: filePath });
 
                         // Case 1: Handle "messy" archives that need a name from the user.
-                        // This preserves your original feature.
                         if (analysis.messy_archive_path) {
                             let finalModName = prompt(`Successfully extracted files from ${fileName}, but no valid mod folder was found.\n\nPlease enter a name for this mod (or leave blank to cancel):`);
                             if (finalModName && finalModName.trim().length > 0) {
@@ -436,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 await invoke('resolve_conflict', {
                                     modName: conflict.name,
-                                    tempModPathStr: conflict.temp_path, // Corrected to match Rust
+                                    tempModPathStr: conflict.temp_path,
                                     replace: shouldReplace
                                 });
 
