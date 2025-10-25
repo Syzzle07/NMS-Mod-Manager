@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 use tauri::{LogicalSize, Manager, PhysicalPosition};
 use unrar;
 use winreg::enums::*;
@@ -176,6 +178,9 @@ fn install_mod_from_archive(archive_path_str: String) -> Result<InstallationAnal
         }
     }
 
+    // Introduce a tiny delay to give the OS time to release the file handle
+    thread::sleep(Duration::from_millis(100)); // 100ms
+    
     // 5. Cleanup the initial extraction folder, which should now be empty
     fs::remove_dir_all(&temp_extract_path).ok();
     
