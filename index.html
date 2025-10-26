@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="windowTitle">NMS Mod Manager</title>
+  </head>
+  <body>
+    <header data-tauri-drag-region>
+      <img src="/src/assets/banner.png" alt="NMS Mod Manager" id="banner-img" draggable="false" />
+      <div class="custom-controls">
+        <img src="/src/assets/icon-troubleshoot.png" alt="Troubleshoot" id="troubleshootBtn" />
+        <img src="/src/assets/icon-close.png" alt="Close" id="customCloseBtn" />
+      </div>
+    </header>
+    <div class="main-content">
+      <div class="top-panel">
+        <!-- Left Column: Contains all settings sections --> 
+        <div class="settings-column-left">
+            <!-- Global Settings Container -->
+            <div class="settings-container" id="globalSettingsContainer">
+                <div class="settings-title-banner global-banner" id="globalBanner">
+                    <span class="banner-text" data-i18n="globalSettingsTitle">Global Settings</span>
+                </div>
+                <div class="switch-container" id="disableAllContainer">
+                    <label class="switch"><input type="checkbox" id="disableAllSwitch" disabled><span class="slider"></span></label>
+                    <label for="disableAllSwitch" data-i18n="disableAllModsLabel">Disable Mod Support</label>
+                </div>
+            </div>
+            <!-- Individual Mod Settings Container -->
+            <div class="settings-container" id="individualSettingsContainer">
+                <div class="settings-title-banner individual-banner" id="individualBanner">
+                    <span class="banner-text" data-i18n="ModSettingsTitle">INDIVIDUAL MOD SETTINGS</span>
+                </div>
+                <div class="batch-actions-container">
+                    <div id="enableAllBtn" class="checkbox-button">
+                        <label class="switch"><input type="checkbox" checked disabled></label>
+                        <span class="action-text" data-i18n="enableAllBtn">Enable All</span>
+                    </div>
+                    <div id="disableAllBtn" class="checkbox-button">
+                        <label class="switch"><input type="checkbox" disabled></label>
+                        <span class="action-text" data-i18n="disableAllBtn">Disable All</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Right Column: Contains all buttons sections --> 
+        <div class="actions-column-right">
+            <!-- Button 1: The clickable div is now separate from the text -->
+            <div class="action-diamond" id="loadFileBtn"></div>
+            <p class="diamond-label" id="loadFileBtn-label" data-i18n="loadFileBtn">Load GCMODSETTINGS</p>
+            <span class="diamond-sublabel" id="filePathLabel" data-i18n="noFileLoaded">No file loaded.</span>
+            <!-- Button 2: The clickable div is now separate from the text -->
+            <div class="action-diamond" id="openModsFolderBtn"></div>
+            <p class="diamond-label" id="openModsFolderBtn-label" data-i18n="openModsFolderBtn">Open MODS Folder</p>
+        </div>
+      </div>
+      <div class="list-panel">
+        <div class="search-bar-container">
+            <input type="text" id="searchModsInput" data-i18n="searchPlaceholder" data-i18n-attr="placeholder" placeholder="Search mods...">
+        </div>
+        <div class="header-row">
+          <span class="mod-name" data-i18n="modNameHeader">Mod Name</span>
+          <span class="priority" data-i18n="priorityHeader">Priority</span>
+          <span class="enabled" data-i18n="enabledHeader">Enabled</span>
+        </div>
+        <div id="modListContainer" class="mod-list"></div>
+        <div id="dropZone" class="drop-zone hidden">
+          <span data-i18n="dropZoneText">DROP .ZIP OR .RAR FILES HERE TO INSTALL MODS</span>
+        </div>
+      </div>
+    </div>
+    <div class="language-selector-container">
+        <select id="languageSelector">
+          <option value="cn">Chinese</option>
+          <option value="cs">Czech</option>
+          <option value="en">English</option>
+          <option value="fr">French</option>
+          <option value="kr">Korean</option>
+          <option value="pl">Polish</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="es">Spanish</option>
+          <option value="sv">Swedish</option>
+          <option value="uk">Ukrainian</option>
+        </select>
+    </div>
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 data-i18n="troubleshootModalTitle">Troubleshoot</h2>
+            <p data-i18n="troubleshootModalDesc">This will DELETE the GCMODSETTINGS file, forcing the game to regenerate a new one on the next launch.</p>
+            <div class="modal-actions">
+                <button id="cancelModalBtn" class="modal-btn-cancel" data-i18n="modalCancelBtn">Cancel</button>
+                <button id="deleteSettingsBtn" class="modal-btn-delete" data-i18n="modalDeleteBtn">Delete GCMODSETTINGS.MXML</button>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
