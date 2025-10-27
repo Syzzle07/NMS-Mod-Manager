@@ -357,6 +357,18 @@ button.modal-btn-cancel:hover {
 	flex-grow: 1;
 }
 
+/* Target ONLY the "Priority" span inside the header row */
+.header-row .priority {
+    text-align: right; /* Align the text to the right of its 80px box */
+    padding-right: 26px; /* Add 10px of space from the right edge */
+}
+
+/* Target ONLY the "Enabled" span inside the header row */
+.header-row .enabled {
+    text-align: left; /* Align the text to the left of its 80px box */
+    padding-left: 0px; /* Add 10px of space from the left edge */
+}
+
 .priority,
 .enabled {
 	flex-shrink: 0;

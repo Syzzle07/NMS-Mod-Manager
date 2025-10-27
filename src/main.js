@@ -90,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
           disableAllBatchBtn = document.getElementById('disableAllBatchBtn');
     
     document.getElementById('minimizeBtn').addEventListener('click', () => appWindow.minimize());
+    document.getElementById('maximizeBtn').addEventListener('click', () => appWindow.toggleMaximize());
     document.getElementById('closeBtn').addEventListener('click', () => appWindow.close());
 
     window.addEventListener('contextmenu', (e) => {
@@ -351,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             prop.setAttribute('value', value);
             return prop;
         };
-        newMod.appendChild(createProp('Name', escapeXml(modName.toUpperCase())));
+        newMod.appendChild(createProp('Name', modName.toUpperCase()));
         newMod.appendChild(createProp('Author', ''));
         newMod.appendChild(createProp('ID', '0'));
         newMod.appendChild(createProp('AuthorID', '0'));
