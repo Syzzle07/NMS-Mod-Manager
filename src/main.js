@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             prop.setAttribute('value', value);
             return prop;
         };
-        newMod.appendChild(createProp('Name', escapeXml(modName.toUpperCase())));
+        newMod.appendChild(createProp('Name', modName.toUpperCase()));
         newMod.appendChild(createProp('Author', ''));
         newMod.appendChild(createProp('ID', '0'));
         newMod.appendChild(createProp('AuthorID', '0'));

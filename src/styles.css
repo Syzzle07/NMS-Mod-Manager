@@ -404,7 +404,7 @@ h3,
 /* Target ONLY the "Priority" span inside the header row */
 .header-row .priority {
     text-align: right; /* Align the text to the right of its 80px box */
-    padding-right: 28px; /* Add 10px of space from the right edge */
+    padding-right: 28.5px; /* Add 10px of space from the right edge */
 }
 
 
