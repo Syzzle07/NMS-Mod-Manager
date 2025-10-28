@@ -33,7 +33,7 @@
     "windows": [
       {
         "title": "NMS Mod Manager",
-        "width": 750,
+        "width": 800,
         "height": 900,
         "resizable": false,
         "decorations": false,
