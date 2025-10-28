@@ -401,25 +401,6 @@ h3,
 	margin-bottom: 5px;
 }
 
-/* Target ONLY the "Priority" span inside the header row */
-.header-row .priority {
-    text-align: right; /* Align the text to the right of its 80px box */
-    padding-right: 28.5px; /* Add 10px of space from the right edge */
-    white-space: nowrap;
-    /* overflow: hidden;
-    text-overflow: ellipsis; */
-}
-
-
-/* Target ONLY the "Enabled" span inside the header row */
-.header-row .enabled {
-    text-align: left; /* Align the text to the left of its 80px box */
-    padding-left: 0px; /* Add 10px of space from the left edge */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .header-row,
 .mod-row {
 	align-items: center;
@@ -432,18 +413,31 @@ h3,
 	flex-grow: 1;
 }
 
-.priority,
-.enabled {
-	flex-shrink: 0;
-	text-align: center;
-	width: 80px;
+.priority {
+    flex-shrink: 0;
+    width: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    padding-right: 10px;
 }
 
-.mod-row .priority,
-.mod-row .enabled {
-	align-items: center;
-	display: flex;
-	justify-content: center;
+.header-row .priority {
+    position: relative;
+    left: -12px;
+}
+
+.enabled {
+	flex-shrink: 0;
+	width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-row .enabled {
+    position: relative;
+    left: -12px;
 }
 
 .mod-row {
