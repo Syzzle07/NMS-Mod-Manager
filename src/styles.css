@@ -357,30 +357,31 @@ button.modal-btn-cancel:hover {
 	flex-grow: 1;
 }
 
-/* Target ONLY the "Priority" span inside the header row */
+.priority {
+    flex-shrink: 0;
+    width: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    padding-right: 10px;
+}
+
 .header-row .priority {
-    text-align: right; /* Align the text to the right of its 80px box */
-    padding-right: 26px; /* Add 10px of space from the right edge */
+    position: relative;
+    left: -12px;
 }
 
-/* Target ONLY the "Enabled" span inside the header row */
-.header-row .enabled {
-    text-align: left; /* Align the text to the left of its 80px box */
-    padding-left: 0px; /* Add 10px of space from the left edge */
-}
-
-.priority,
 .enabled {
 	flex-shrink: 0;
-	text-align: center;
 	width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.mod-row .priority,
-.mod-row .enabled {
-	align-items: center;
-	display: flex;
-	justify-content: center;
+.header-row .enabled {
+    position: relative;
+    left: -12px;
 }
 
 .mod-row {
@@ -585,4 +586,49 @@ input:checked+.slider:before {
 	gap: 15px;
 	justify-content: center;
 	margin-top: 20px;
+}
+
+/* ==========================================================================
+   5. Context Menu
+   ========================================================================== */
+.context-menu {
+    background-color: rgba(35, 35, 35, 0.95);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border-radius: 6px;
+    filter: drop-shadow(1px 1px 7px black);
+    min-width: 150px;
+    padding: 0px 0;
+    position: fixed;
+    z-index: 4000;
+    user-select: none;
+}
+
+button.context-menu-item {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-color);
+    cursor: pointer;
+    display: block;
+    font-size: 14px; 
+    font-weight: normal;
+    padding: 8px 15px;
+    text-align: left; 
+    transition: background-color 0.1s ease-in-out;
+    width: 100%;
+}
+
+button.context-menu-item:hover {
+    background-color: var(--hover-color);
+    color: white;
+}
+
+button.context-menu-item.delete {
+    color: var(--text-color);
+}
+
+button.context-menu-item.delete:hover {
+    background-color: var(--danger-hover-color);
+    color: white;
 }

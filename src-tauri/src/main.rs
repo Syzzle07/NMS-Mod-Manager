@@ -3,6 +3,11 @@
 // --- IMPORTS ---
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use quick_xml::de::from_str;
+use quick_xml::se::to_string;
+use quick_xml::events::Event;
+use quick_xml::Reader;
+use quick_xml::Writer;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,6 +20,50 @@ use winreg::RegKey;
 use zip::ZipArchive;
 
 // --- STRUCTS ---
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ModProperty {
+    #[serde(rename = "@name")]
+    name: String,
+    // This is the fix: it tells the parser that the 'value' attribute is optional.
+    #[serde(rename = "@value", default)]
+    value: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename = "Property")]
+struct ModEntry {
+    #[serde(rename = "@name")]
+    entry_name: String,
+    #[serde(rename = "@value")]
+    entry_value: String,
+    #[serde(rename = "@_index")]
+    index: String,
+    #[serde(rename = "Property", default)]
+    properties: Vec<ModProperty>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TopLevelProperty {
+    #[serde(rename = "@name")]
+    name: String,
+    // This is the key fix: `default` makes the 'value' attribute optional.
+    #[serde(rename = "@value", default)]
+    value: String,
+    #[serde(rename = "Property", default)]
+    mods: Vec<ModEntry>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename = "Data")]
+struct SettingsData {
+    #[serde(rename = "@template")]
+    template: String,
+    #[serde(rename = "Property")]
+    properties: Vec<TopLevelProperty>,
+}
+//--- END OF DELETE STRUCT ---
+
 #[derive(Serialize, Deserialize)]
 struct WindowState {
     x: i32,
@@ -310,6 +359,81 @@ fn resize_window(window: tauri::Window, width: f64) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn delete_mod(mod_name: String) -> Result<String, String> {
+    // 1. Find Paths
+    let game_path = find_game_path().ok_or_else(|| "Could not find game installation path.".to_string())?;
+    let mods_folder_path = game_path.join("GAMEDATA").join("MODS");
+    let settings_file_path = game_path.join("Binaries").join("SETTINGS").join("GCMODSETTINGS.MXML");
+    let mod_to_delete_path = mods_folder_path.join(&mod_name);
+
+    // 2. Delete the Mod Folder
+    if mod_to_delete_path.exists() {
+        fs::remove_dir_all(&mod_to_delete_path)
+            .map_err(|e| format!("Failed to delete mod folder for '{}': {}", mod_name, e))?;
+    }
+
+    // 3. Read and Deserialize the XML file
+    let xml_content = fs::read_to_string(&settings_file_path)
+        .map_err(|e| format!("Failed to read GCMODSETTINGS.MXML: {}", e))?;
+
+    let mut root: SettingsData = from_str(&xml_content)
+        .map_err(|e| format!("Failed to parse GCMODSETTINGS.MXML: {}", e))?;
+
+    // 4. Modify the data in the structs (filter, re-index)
+    for prop in root.properties.iter_mut() {
+        if prop.name == "Data" {
+            let mods_to_keep: Vec<ModEntry> = prop.mods.clone().into_iter().filter(|entry| {
+                if let Some(name_prop) = entry.properties.iter().find(|p| p.name == "Name") {
+                    !name_prop.value.eq_ignore_ascii_case(&mod_name)
+                } else {
+                    true
+                }
+            }).collect();
+
+            prop.mods = mods_to_keep;
+
+            for (i, mod_entry) in prop.mods.iter_mut().enumerate() {
+                let new_index = i.to_string();
+                mod_entry.index = new_index.clone();
+                if let Some(priority_prop) = mod_entry.properties.iter_mut().find(|p| p.name == "ModPriority") {
+                    priority_prop.value = new_index;
+                }
+            }
+            break;
+        }
+    }
+
+    // 5. Serialize to an unformatted string first
+    let unformatted_xml = to_string(&root)
+        .map_err(|e| format!("Failed to serialize data to string: {}", e))?;
+
+    // 6. Re-format the string with indentation
+    let mut reader = Reader::from_str(&unformatted_xml);
+    reader.trim_text(true);
+    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Eof) => break,
+            Ok(event) => writer.write_event(event).unwrap(),
+            Err(e) => return Err(format!("Error at position {}: {:?}", reader.buffer_position(), e)),
+        }
+    }
+
+    let buf = writer.into_inner();
+    let xml_body = String::from_utf8(buf)
+        .map_err(|e| format!("Failed to convert formatted buffer to string: {}", e))?;
+
+    // 7. Save the final, formatted content
+    let final_content = format!("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}", xml_body);
+
+    fs::write(&settings_file_path, &final_content)
+        .map_err(|e| format!("Failed to save updated GCMODSETTINGS.MXML: {}", e))?;
+
+    Ok(final_content)
+}
+
 // --- MAIN FUNCTION ---
 fn main() {
     tauri::Builder::default()
@@ -374,7 +498,8 @@ fn main() {
             resolve_conflict,        
             finalize_mod_installation,
             cleanup_temp_folder,
-            resize_window
+            resize_window,
+            delete_mod
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

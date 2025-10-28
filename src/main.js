@@ -93,9 +93,86 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('maximizeBtn').addEventListener('click', () => appWindow.toggleMaximize());
     document.getElementById('closeBtn').addEventListener('click', () => appWindow.close());
 
+    // --- DELETE MOD ---: Context Menu Logic
+    let contextMenu = null;
+
+    const removeContextMenu = () => {
+        if (contextMenu) {
+            contextMenu.remove();
+            contextMenu = null;
+        }
+    };
+
+    // Hide context menu if clicking anywhere else on the window or its frame
+    window.addEventListener('click', removeContextMenu, true); 
     window.addEventListener('contextmenu', (e) => {
+        // Prevent default unless the user is right-clicking on an input field
+        const target = e.target;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+        removeContextMenu(); // Always remove an old menu when a new one is requested
+    }, true);
+
+    modListContainer.addEventListener('contextmenu', (e) => {
+        const modRow = e.target.closest('.mod-row');
+        if (!modRow) return;
+
         e.preventDefault();
+        e.stopPropagation(); // Stop the event from bubbling to the window listener
+        removeContextMenu(); // Ensure any previous menu is gone
+
+        const modName = modRow.dataset.modName;
+
+        contextMenu = document.createElement('div');
+        contextMenu.className = 'context-menu';
+        contextMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 160)}px`;
+        contextMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 85)}px`;
+
+        const copyButton = document.createElement('button');
+        copyButton.textContent = i18n.get('copyModNameBtn'); 
+        copyButton.className = 'context-menu-item';
+
+        copyButton.onclick = async () => {
+            removeContextMenu();
+            try {
+                await navigator.clipboard.writeText(modName);
+                alert(i18n.get('copySuccess', { modName })); // Confirmation message
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                alert('Could not copy text to clipboard.');
+            }
+        };
+
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = i18n.get('deleteModBtn', { modName });
+        deleteButton.className = 'context-menu-item delete';
+
+        deleteButton.onclick = async () => {
+            removeContextMenu();
+            const confirmed = await confirm(
+                i18n.get('confirmDeleteMod', { modName }),
+                { title: i18n.get('confirmDeleteTitle'), type: 'warning' }
+            );
+
+            if (confirmed) {
+                try {
+                    // Call the new Rust command
+                    const updatedXmlContent = await invoke('delete_mod', { modName: modName });
+                    // Reload the list using the fresh XML content returned from Rust
+                    await loadXmlContent(updatedXmlContent, currentFilePath);
+                    alert(i18n.get('deleteSuccess', { modName }));
+                } catch (error) {
+                    alert(`${i18n.get('deleteError', { modName })}\n\n${error}`);
+                }
+            }
+        };
+
+        contextMenu.appendChild(copyButton); 
+        contextMenu.appendChild(deleteButton);
+        document.body.appendChild(contextMenu);
     });
+    // --- DELETE MOD END ---
 
     // --- MANUAL DRAG AND DROP LOGIC ---
     function onMouseMove(e) {
