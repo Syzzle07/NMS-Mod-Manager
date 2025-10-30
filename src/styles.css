@@ -210,11 +210,11 @@ h3,
 
 /* --- Banner Text Positioning --- */
 #globalBanner .banner-text {
-    left: 20px; /* Tweak this to move "GLOBAL SETTINGS" text */
+    left: 10px; /* Tweak this to move "GLOBAL SETTINGS" text */
 }
 
 #individualBanner .banner-text {
-    left: 20px; /* Tweak this to move "INDIVIDUAL MOD SETTINGS" text */
+    left: 10px; /* Tweak this to move "INDIVIDUAL MOD SETTINGS" text */
 }
 
 /* ==========================================================================
@@ -283,7 +283,7 @@ h3,
     opacity: 0.7;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 180px;
+    max-width: 200px;
 }
 
 /* --- Right Side Element movement stuff --- */
@@ -292,7 +292,7 @@ h3,
 /* Tweak position of entire button */
 #loadFileBtn {
     top: 58px;
-    left: 180px;
+    left: 160px;
 }
 #loadFileBtn::before {
     background-image: url('/src/assets/diamond-1.png');
@@ -300,19 +300,19 @@ h3,
 /* Tweak these to move the MAIN TEXT */
 #loadFileBtn-label {
     top: 27px;
-    left: 92px;
+    left: 72px;
 }
 /* Tweak these to move the SUB-TEXT */
 #filePathLabel {
     top: 55px;
-    left: 105px;
+    left: 85px;
 }
 
 /* --- Button 2: Open MODS Folder --- */
 /* Tweak these to move and resize the clickable ICON */
 #openModsFolderBtn {
     top: 115px;
-    left: 210px;
+    left: 190px;
 }
 #openModsFolderBtn::before {
     background-image: url('/src/assets/diamond-2.png');
@@ -320,40 +320,60 @@ h3,
 /* Tweak these to move the MAIN TEXT */
 #openModsFolderBtn-label {
     top: 110px;
-    left: 130px;
+    left: 110px;
 }
 
 /* --- Global Settings Section --- */
 
 .settings-title-banner {
-    background-size: 100% 100%;
-    background-repeat: no-repeat;    
     position: relative;
-    display: block; 
-    background-position: 0 0;
+    height: 35px;
+}
+
+.settings-title-banner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 100%;
+    left: 44px;  
+    right: 44px;
+    background-size: 100% 100%;
+    
+    z-index: 1; /* Sits on the bottom background layer */
+}
+
+.settings-title-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-repeat: no-repeat, no-repeat;
+    background-position: left, right;
+    background-size: contain, contain; 
+    
+    z-index: 2; /* Sits on top of the middle layer */
+}
+
+.global-banner::after { /* Middle */
+    background-image: url('/src/assets/settings-banner-middle.png');
+}
+.global-banner::before { /* Caps (Left, then Right) */
+    background-image: url('/src/assets/settings-banner-left.png'), url('/src/assets/settings-banner-right.png');
 }
 
 .banner-text {
     position: absolute;
-    top: 50%; 
-    left: 15px; 
-    transform: translateY(-70%); /* Fine-tune vertical centering */
+    z-index: 3; /* Sits on the very top layer */
+    top: 50%;
+    transform: translateY(-70%); /* Fine-tunes vertical alignment */
+    left: 20px; 
+
     font-family: var(--font-primary);
     font-size: 13.5pt;
     color: #fff;
     white-space: nowrap;
-}
-
-.global-banner {
-    background-image: url('/src/assets/global-settings-banner.png');
-    height: 35px;
-    width: 250px;
-}
-
-.individual-banner {
-    background-image: url('/src/assets/mod-settings-banner.png');
-    height: 35px;
-    width: 320px;
 }
 
 .switch-container {
@@ -419,12 +439,13 @@ h3,
     display: flex;
     align-items: center;
     justify-content: center; 
-    padding-right: 10px;
+    padding-right: 20px;
 }
 
 .header-row .priority {
     position: relative;
     left: -12px;
+    white-space: nowrap;
 }
 
 .enabled {
@@ -438,6 +459,7 @@ h3,
 .header-row .enabled {
     position: relative;
     left: -12px;
+    white-space: nowrap;
 }
 
 .mod-row {
@@ -466,7 +488,7 @@ h3,
 
 /* This is the placeholder that reserves the space in the list */
 .placeholder {
-    background-color: rgba(0, 153, 255, 0.2);
+    background-color: rgba(241, 232, 209, 0.2);
     border: 1px dashed var(--accent-color);
     border-radius: 4px;
     margin-bottom: 4px;

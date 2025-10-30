@@ -15,19 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetX = 0;
     let offsetY = 0;
     let originalNextSibling = null;
+    let dragTimer = null;
 
     // --- Make the Window Wider based on Language ---
-    const mainContent = document.querySelector('.main-content');
-    const updateWindowSize = () => {
-        requestAnimationFrame(() => {
-            const originalWidth = mainContent.style.width;
-            mainContent.style.width = 'max-content';
-            const requiredWidth = mainContent.scrollWidth;
-            mainContent.style.width = originalWidth;
-            const finalWidth = Math.max(750, requiredWidth + 10);
-            invoke('resize_window', { width: finalWidth }).catch(console.error);
-        });
-    };
+    // const mainContent = document.querySelector('.main-content');
+    // const updateWindowSize = () => {
+    //     requestAnimationFrame(() => {
+    //         const originalWidth = mainContent.style.width;
+    //         mainContent.style.width = 'max-content';
+    //         const requiredWidth = mainContent.scrollWidth;
+    //         mainContent.style.width = originalWidth;
+    //         const finalWidth = Math.max(750, requiredWidth + 10);
+    //         invoke('resize_window', { width: finalWidth }).catch(console.error);
+    //     });
+    // };
     // --- Language Stuff ---
     const i18n = {
         async loadLanguage(lang) {
@@ -63,7 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 filePathLabel.textContent = this.get('noFileLoaded');
             }
-            updateWindowSize();
+            // updateWindowSize();
+            this.adjustBannerWidths(); 
         },
         get(key, placeholders = {}) {
             let text = currentTranslations[key] || key;
@@ -71,7 +73,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 text = text.replace(`{{${placeholder}}}`, value);
             }
             return text;
-        }
+        },
+        // --- ADD THIS NEW FUNCTION ---
+        adjustBannerWidths() {
+        const HORIZONTAL_PADDING = 60; 
+
+        // --- 1. CREATE A CONFIGURATION OBJECT FOR YOUR BANNERS ---
+        // Here you can define a unique minWidth for each banner by its ID.
+        const bannerConfigs = [
+            { id: 'globalBanner',           minWidth: 240 },
+            { id: 'individualBanner',       minWidth: 310 }
+            // If you ever add a third banner, you just add a new line here!
+        ];
+
+        // --- 2. LOOP THROUGH THE CONFIGURATION ---
+        bannerConfigs.forEach(config => {
+            const banner = document.getElementById(config.id);
+
+            if (banner) {
+                const textElement = banner.querySelector('.banner-text');
+                if (textElement) {
+                    // --- 3. CALCULATE THE DESIRED WIDTH (same as before) ---
+                    const calculatedWidth = textElement.scrollWidth + HORIZONTAL_PADDING;
+
+                    // --- 4. USE THE BANNER'S SPECIFIC MINIMUM WIDTH from the config ---
+                    const finalWidth = Math.max(config.minWidth, calculatedWidth);
+
+                    // --- 5. APPLY THE FINAL WIDTH ---
+                    banner.style.width = `${finalWidth}px`;
+                }
+            }
+        });
+    }
+        // --- END OF NEW FUNCTION ---
     };
 
     const loadFileBtn = document.getElementById('loadFileBtn'),
@@ -224,30 +258,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     modListContainer.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.switch')) {
+        if (e.target.closest('.switch') || e.button !== 0) {
             return;
         }
         const row = e.target.closest('.mod-row');
-        if (!row || e.button !== 0) return;
+        if (!row) return;
+
         e.preventDefault();
-        draggedElement = row;
-        originalNextSibling = draggedElement.nextSibling;
-        const rect = draggedElement.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        placeholder = document.createElement('div');
-        placeholder.className = 'placeholder';
-        placeholder.style.height = `${rect.height}px`;
-        ghostElement = draggedElement.cloneNode(true);
-        ghostElement.classList.add('ghost');
-        document.body.appendChild(ghostElement);
-        ghostElement.style.width = `${rect.width}px`;
-        ghostElement.style.left = `${e.clientX - offsetX}px`;
-        ghostElement.style.top = `${e.clientY - offsetY}px`;
-        draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-        draggedElement.classList.add('is-dragging');
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+
+        const DRAG_DELAY = 100; // The delay in milliseconds
+        const cancelDragStart = () => {
+            clearTimeout(dragTimer);
+            document.removeEventListener('mouseup', cancelDragStart);
+        };
+        document.addEventListener('mouseup', cancelDragStart);
+
+        // Start a timer. If it completes, the drag will begin.
+        dragTimer = setTimeout(() => {
+            // The timer finished, so the user held the click.
+            document.removeEventListener('mouseup', cancelDragStart);
+
+            draggedElement = row;
+            originalNextSibling = draggedElement.nextSibling;
+            const rect = draggedElement.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            placeholder = document.createElement('div');
+            placeholder.className = 'placeholder';
+            placeholder.style.height = `${rect.height}px`;
+            ghostElement = draggedElement.cloneNode(true);
+            ghostElement.classList.add('ghost');
+            document.body.appendChild(ghostElement);
+            ghostElement.style.width = `${rect.width}px`;
+            ghostElement.style.left = `${e.clientX - offsetX}px`;
+            ghostElement.style.top = `${e.clientY - offsetY}px`;
+            draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+            draggedElement.classList.add('is-dragging');
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+
+        }, DRAG_DELAY);
     });
     // REORDER END
 
@@ -296,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.warn("Could not auto-load settings file. It may not exist yet.", e);
             if (filePathLabel.textContent === i18n.get('noFileLoaded')) {
-                filePathLabel.textContent += " Game detected.";
+                // filePathLabel.textContent += " Game detected.";
             }
         }
     };
@@ -493,7 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const resultKey = await invoke('delete_settings_file');
             currentFilePath = null;
             xmlDoc = null;
-            filePathLabel.textContent = i18n.get('noFileLoaded') + " " + i18n.get('settingsDeleted');
+            filePathLabel.textContent = i18n.get('noFileLoaded');
+            // filePathLabel.textContent = i18n.get('noFileLoaded') + " " + i18n.get('settingsDeleted');
             disableAllSwitch.checked = false;
             disableAllSwitch.disabled = true;
             modListContainer.innerHTML = '';
