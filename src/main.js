@@ -16,9 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetY = 0;
     let originalNextSibling = null;
 
-    // --- Make the Window Wider based on Language ---
+
     const mainContent = document.querySelector('.main-content');
-    const updateWindowSize = () => {
+    // --- Make the Window Wider based on Language ---
+    const updateWindowSize = (forceResize = false) => {
+        if (!forceResize) {
+            return;
+        }
+
         requestAnimationFrame(() => {
             const originalWidth = mainContent.style.width;
             mainContent.style.width = 'max-content';
@@ -298,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 filePathLabel.textContent += " Game detected.";
             }
         }
-        updateWindowSize();
     };
 
     const loadXmlContent = async (content, path) => {
@@ -587,8 +591,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    languageSelector.addEventListener('change', (e) => {
-        i18n.loadLanguage(e.target.value);
+    languageSelector.addEventListener('change', async (e) => {
+    await i18n.loadLanguage(e.target.value);
+    updateWindowSize(true);
     });
     
     initializeApp();

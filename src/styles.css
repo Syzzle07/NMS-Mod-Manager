@@ -12,12 +12,17 @@
 
 * {
 	box-sizing: border-box;
+  -webkit-user-select: none; /* For Chrome, Safari, etc. */
+  -moz-user-select: none;    /* For Firefox */
+  -ms-user-select: none;     /* For IE/Edge */
+  user-select: none;         /* The standard property */
 }
 
 body {
 	background-image: url('assets/background.png');
 	background-position: center;
-	background-size: cover;
+	background-repeat: no-repeat;
+	background-size: auto 100%; 
 	color: var(--text-color);
 	display: flex;
 	flex-direction: column;
@@ -25,6 +30,11 @@ body {
 	height: 100vh;
 	margin: 0;
 	overflow: hidden;
+}
+@media (min-aspect-ratio: 16/9) {
+    body {
+        background-size: cover;
+    }
 }
 
 /* ==========================================================================

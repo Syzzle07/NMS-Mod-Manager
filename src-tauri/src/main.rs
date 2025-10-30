@@ -25,7 +25,6 @@ use zip::ZipArchive;
 struct ModProperty {
     #[serde(rename = "@name")]
     name: String,
-    // This is the fix: it tells the parser that the 'value' attribute is optional.
     #[serde(rename = "@value", default)]
     value: String,
 }
@@ -47,7 +46,6 @@ struct ModEntry {
 struct TopLevelProperty {
     #[serde(rename = "@name")]
     name: String,
-    // This is the key fix: `default` makes the 'value' attribute optional.
     #[serde(rename = "@value", default)]
     value: String,
     #[serde(rename = "Property", default)]
@@ -64,12 +62,16 @@ struct SettingsData {
 }
 //--- END OF DELETE STRUCT ---
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct WindowState {
     x: i32,
     y: i32,
+    width: Option<u32>,
+    height: Option<u32>,
     maximized: bool,
 }
+
+struct UserResized(std::sync::atomic::AtomicBool);
 
 // New struct to hold information about a single mod being installed from an archive
 #[derive(serde::Serialize, Clone)]
@@ -437,50 +439,72 @@ fn delete_mod(mod_name: String) -> Result<String, String> {
 // --- MAIN FUNCTION ---
 fn main() {
     tauri::Builder::default()
+        .manage(UserResized(std::sync::atomic::AtomicBool::new(false)))
         .setup(|app| {
             let window = app.get_window("main").unwrap();
             let state_file_path = get_state_file_path();
-            if let Ok(state_json) = fs::read_to_string(state_file_path) {
+
+            if let Ok(state_json) = std::fs::read_to_string(state_file_path) {
                 if let Ok(state) = serde_json::from_str::<WindowState>(&state_json) {
                     window.set_position(PhysicalPosition::new(state.x, state.y)).unwrap();
+                    if let (Some(width), Some(height)) = (state.width, state.height) {
+                        window.set_size(tauri::PhysicalSize::new(width, height)).unwrap();
+                        let resize_state: tauri::State<UserResized> = app.state();
+                        resize_state.0.store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
                     if state.maximized {
                         window.maximize().unwrap();
                     }
                 }
             }
+            window.show().unwrap(); 
             Ok(())
         })
         .on_window_event(|event| {
             match event.event() {
-                tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_) | tauri::WindowEvent::CloseRequested { .. } => {
+                tauri::WindowEvent::Resized(_) |
+                tauri::WindowEvent::Moved(_) |
+                tauri::WindowEvent::CloseRequested { .. } => {
                     let window = event.window();
+                    let resize_state: tauri::State<UserResized> = window.state();
+                    
+                    if let tauri::WindowEvent::Resized(_) = event.event() {
+                        if !window.is_maximized().unwrap_or(false) {
+                            resize_state.0.store(true, std::sync::atomic::Ordering::Relaxed);
+                        }
+                    }
+
                     let is_maximized = window.is_maximized().unwrap_or(false);
+
+                    let mut state: WindowState = std::fs::read_to_string(get_state_file_path())
+                        .ok()
+                        .and_then(|json| serde_json::from_str(&json).ok())
+                        .unwrap_or_else(|| {
+                            let pos = window.outer_position().unwrap_or_default();
+                            WindowState { x: pos.x, y: pos.y, width: None, height: None, maximized: false }
+                        });
+                    
+                    state.maximized = is_maximized;
 
                     if !is_maximized {
                         let position = window.outer_position().unwrap();
-                        let state = WindowState {
-                            x: position.x,
-                            y: position.y,
-                            maximized: false,
-                        };
+                        state.x = position.x;
+                        state.y = position.y;
+                         if resize_state.0.load(std::sync::atomic::Ordering::Relaxed) {
+                            let size = window.outer_size().unwrap();
+                            state.width = Some(size.width);
+                            state.height = Some(size.height);
+                        }
+                    }
 
-                        if let Ok(state_json) = serde_json::to_string(&state) {
-                            if let Err(e) = fs::write(get_state_file_path(), state_json) {
-                                eprintln!("Failed to save window state: {}", e);
-                            }
+                    if let Ok(state_json) = serde_json::to_string(&state) {
+                        if let Err(e) = std::fs::write(get_state_file_path(), state_json) {
+                            eprintln!("Failed to save window state: {}", e);
                         }
-                    } else {
-                        let state_file_path = get_state_file_path();
-                        if let Ok(state_json) = fs::read_to_string(&state_file_path) {
-                            if let Ok(mut state) = serde_json::from_str::<WindowState>(&state_json) {
-                                state.maximized = true;
-                                if let Ok(new_state_json) = serde_json::to_string(&state) {
-                                    if let Err(e) = fs::write(state_file_path, new_state_json) {
-                                        eprintln!("Failed to save maximized state: {}", e);
-                                    }
-                                }
-                            }
-                        }
+                    }
+                    
+                    if let tauri::WindowEvent::CloseRequested { .. } = event.event() {
+                         window.app_handle().exit(0);
                     }
                 }
                 _ => {}
@@ -495,7 +519,7 @@ fn main() {
             close_window,
             delete_settings_file,
             install_mod_from_archive,
-            resolve_conflict,        
+            resolve_conflict,
             finalize_mod_installation,
             cleanup_temp_folder,
             resize_window,
