@@ -78,12 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
         adjustBannerWidths() {
         const HORIZONTAL_PADDING = 60; 
 
-        // --- 1. CREATE A CONFIGURATION OBJECT FOR YOUR BANNERS ---
-        // Here you can define a unique minWidth for each banner by its ID.
+        // --- 1. CONFIGURATION OBJECT FOR THE BANNERS ---
         const bannerConfigs = [
             { id: 'globalBanner',           minWidth: 240 },
             { id: 'individualBanner',       minWidth: 310 }
-            // If you ever add a third banner, you just add a new line here!
         ];
 
         // --- 2. LOOP THROUGH THE CONFIGURATION ---
@@ -93,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (banner) {
                 const textElement = banner.querySelector('.banner-text');
                 if (textElement) {
-                    // --- 3. CALCULATE THE DESIRED WIDTH (same as before) ---
+                    // --- 3. CALCULATE THE DESIRED WIDTH ---
                     const calculatedWidth = textElement.scrollWidth + HORIZONTAL_PADDING;
 
                     // --- 4. USE THE BANNER'S SPECIFIC MINIMUM WIDTH from the config ---
@@ -190,10 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (confirmed) {
                 try {
-                    // Call the new Rust command
+                    // 1. Rust modifies data and returns the new XML string
                     const updatedXmlContent = await invoke('delete_mod', { modName: modName });
-                    // Reload the list using the fresh XML content returned from Rust
+                    // 2. We load this new XML into our browser's DOM
                     await loadXmlContent(updatedXmlContent, currentFilePath);
+                    // 3. CRITICAL: We now tell our JavaScript serializer to save the file
+                    await saveChanges(); 
+                    
                     alert(i18n.get('deleteSuccess', { modName }));
                 } catch (error) {
                     alert(`${i18n.get('deleteError', { modName })}\n\n${error}`);
@@ -277,7 +278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dragTimer = setTimeout(() => {
             // The timer finished, so the user held the click.
             document.removeEventListener('mouseup', cancelDragStart);
-
             draggedElement = row;
             originalNextSibling = draggedElement.nextSibling;
             const rect = draggedElement.getBoundingClientRect();
@@ -504,9 +504,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
-        const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
+        
+        let attributeList = Array.from(node.attributes);
+        const nameAttr = node.getAttribute('name');
+
+        // Special rule 1: The main <Property name="Data"> container
+        const isMainDataContainer = (
+            nameAttr === 'Data' &&
+            node.parentNode &&
+            node.parentNode.tagName === 'Data'
+        );
+        // Special rule 2: The <Property name="Dependencies" /> tag
+        const isDependenciesTag = (nameAttr === 'Dependencies');
+
+        // If either special rule applies, strip the 'value' attribute
+        if (isMainDataContainer || isDependenciesTag) {
+            attributeList = attributeList.filter(attr => attr.name !== 'value');
+        }
+
+        const attributes = attributeList.map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
         const tag = node.tagName;
         let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
+
         if (node.children.length > 0) {
             nodeString += '>\n';
             for (const child of node.children) {
@@ -514,7 +533,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             nodeString += `${indent}</${tag}>\n`;
         } else {
-            nodeString += ' />\n';
+            // This correctly adds the space before the self-closing tag
+            nodeString += ' />\n'; 
         }
         return nodeString;
     };

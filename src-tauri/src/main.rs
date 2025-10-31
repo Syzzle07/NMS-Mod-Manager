@@ -25,9 +25,8 @@ use zip::ZipArchive;
 struct ModProperty {
     #[serde(rename = "@name")]
     name: String,
-    // This is the fix: it tells the parser that the 'value' attribute is optional.
     #[serde(rename = "@value", default)]
-    value: String,
+    value: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -36,20 +35,19 @@ struct ModEntry {
     #[serde(rename = "@name")]
     entry_name: String,
     #[serde(rename = "@value")]
-    entry_value: String,
+    entry_value: String, // This one is fine as it's required
     #[serde(rename = "@_index")]
     index: String,
     #[serde(rename = "Property", default)]
-    properties: Vec<ModProperty>,
+    properties: Vec<ModProperty>, // This now contains the correctly typed properties
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct TopLevelProperty {
     #[serde(rename = "@name")]
     name: String,
-    // This is the key fix: `default` makes the 'value' attribute optional.
     #[serde(rename = "@value", default)]
-    value: String,
+    value: Option<String>, 
     #[serde(rename = "Property", default)]
     mods: Vec<ModEntry>,
 }
@@ -363,9 +361,8 @@ fn resize_window(window: tauri::Window, width: f64) -> Result<(), String> {
 fn delete_mod(mod_name: String) -> Result<String, String> {
     // 1. Find Paths
     let game_path = find_game_path().ok_or_else(|| "Could not find game installation path.".to_string())?;
-    let mods_folder_path = game_path.join("GAMEDATA").join("MODS");
     let settings_file_path = game_path.join("Binaries").join("SETTINGS").join("GCMODSETTINGS.MXML");
-    let mod_to_delete_path = mods_folder_path.join(&mod_name);
+    let mod_to_delete_path = game_path.join("GAMEDATA").join("MODS").join(&mod_name);
 
     // 2. Delete the Mod Folder
     if mod_to_delete_path.exists() {
@@ -373,64 +370,55 @@ fn delete_mod(mod_name: String) -> Result<String, String> {
             .map_err(|e| format!("Failed to delete mod folder for '{}': {}", mod_name, e))?;
     }
 
-    // 3. Read and Deserialize the XML file
+    // 3. Read and Deserialize
     let xml_content = fs::read_to_string(&settings_file_path)
         .map_err(|e| format!("Failed to read GCMODSETTINGS.MXML: {}", e))?;
-
     let mut root: SettingsData = from_str(&xml_content)
         .map_err(|e| format!("Failed to parse GCMODSETTINGS.MXML: {}", e))?;
 
-    // 4. Modify the data in the structs (filter, re-index)
+    // 4. Modify the data in the structs
     for prop in root.properties.iter_mut() {
         if prop.name == "Data" {
-            let mods_to_keep: Vec<ModEntry> = prop.mods.clone().into_iter().filter(|entry| {
+            // Use retain for a cleaner filter
+            prop.mods.retain(|entry| {
+                // Find the name property within the mod entry
                 if let Some(name_prop) = entry.properties.iter().find(|p| p.name == "Name") {
-                    !name_prop.value.eq_ignore_ascii_case(&mod_name)
-                } else {
-                    true
-                }
-            }).collect();
+                    // Check if the name value exists and compare it
+                    if let Some(name_value) = &name_prop.value {
+                        !name_value.eq_ignore_ascii_case(&mod_name)
+                    } else { true } // Keep if no name value
+                } else { true } // Keep if no name property
+            });
 
-            prop.mods = mods_to_keep;
-
+            // Re-index and update priority
             for (i, mod_entry) in prop.mods.iter_mut().enumerate() {
                 let new_index = i.to_string();
                 mod_entry.index = new_index.clone();
                 if let Some(priority_prop) = mod_entry.properties.iter_mut().find(|p| p.name == "ModPriority") {
-                    priority_prop.value = new_index;
+                    priority_prop.value = Some(new_index);
                 }
             }
             break;
         }
     }
 
-    // 5. Serialize to an unformatted string first
-    let unformatted_xml = to_string(&root)
-        .map_err(|e| format!("Failed to serialize data to string: {}", e))?;
-
-    // 6. Re-format the string with indentation
+    // 5. Serialize and Re-format
+    let unformatted_xml = to_string(&root).map_err(|e| e.to_string())?;
     let mut reader = Reader::from_str(&unformatted_xml);
     reader.trim_text(true);
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
-
     loop {
         match reader.read_event() {
             Ok(Event::Eof) => break,
             Ok(event) => writer.write_event(event).unwrap(),
-            Err(e) => return Err(format!("Error at position {}: {:?}", reader.buffer_position(), e)),
+            Err(e) => return Err(format!("XML formatting error: {:?}", e)),
         }
     }
-
     let buf = writer.into_inner();
-    let xml_body = String::from_utf8(buf)
-        .map_err(|e| format!("Failed to convert formatted buffer to string: {}", e))?;
-
-    // 7. Save the final, formatted content
+    let xml_body = String::from_utf8(buf).map_err(|e| e.to_string())?;
     let final_content = format!("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}", xml_body);
 
-    fs::write(&settings_file_path, &final_content)
-        .map_err(|e| format!("Failed to save updated GCMODSETTINGS.MXML: {}", e))?;
-
+    // 6. Return the perfectly formatted content to JavaScript. DO NOT SAVE.
     Ok(final_content)
 }
 

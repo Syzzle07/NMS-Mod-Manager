@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "NMS Mod Manager",
-    "version": "1.0.6"
+    "version": "2.0.0"
   },
   "tauri": {
     "allowlist": {
@@ -35,10 +35,14 @@
         "title": "NMS Mod Manager",
         "width": 800,
         "height": 900,
-        "resizable": false,
+        "resizable": true,
         "decorations": false,
         "transparent": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "minWidth": 670, 
+        "minHeight": 500,
+        "maxWidth": 1920,
+        "maxHeight": 960
       }
     ]
   }
