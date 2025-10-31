@@ -162,10 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (confirmed) {
                 try {
-                    // Call the new Rust command
+                    // 1. Rust modifies the data and returns the new XML string
                     const updatedXmlContent = await invoke('delete_mod', { modName: modName });
-                    // Reload the list using the fresh XML content returned from Rust
+                    // 2. We load this new XML into our browser's DOM
                     await loadXmlContent(updatedXmlContent, currentFilePath);
+                    // 3. CRITICAL: We now tell our JavaScript serializer to save the file
+                    await saveChanges(); 
+                    
                     alert(i18n.get('deleteSuccess', { modName }));
                 } catch (error) {
                     alert(`${i18n.get('deleteError', { modName })}\n\n${error}`);
@@ -457,9 +460,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const formatNode = (node, indentLevel) => {
         const indent = '  '.repeat(indentLevel);
-        const attributes = Array.from(node.attributes).map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
+        
+        let attributeList = Array.from(node.attributes);
+
+        // Get the name attribute for our checks
+        const nameAttr = node.getAttribute('name');
+
+        // --- THIS IS THE FINAL, CORRECTED RULE ---
+        const isMainDataContainer = (
+            nameAttr === 'Data' &&
+            node.parentNode &&
+            node.parentNode.tagName === 'Data'
+        );
+        const isDependenciesTag = (nameAttr === 'Dependencies');
+
+        // If it's the main container OR it's the Dependencies tag...
+        if (isMainDataContainer || isDependenciesTag) {
+            // ...then filter the list to REMOVE the "value" attribute.
+            attributeList = attributeList.filter(attr => attr.name !== 'value');
+        }
+
+        const attributes = attributeList.map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
+        
         const tag = node.tagName;
         let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
+
         if (node.children.length > 0) {
             nodeString += '>\n';
             for (const child of node.children) {
@@ -467,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             nodeString += `${indent}</${tag}>\n`;
         } else {
-            nodeString += ' />\n';
+            nodeString += ' />\n'; 
         }
         return nodeString;
     };
