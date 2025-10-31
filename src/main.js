@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (confirmed) {
                 try {
-                    // 1. Rust modifies the data and returns the new XML string
+                    // 1. Rust modifies data and returns the new XML string
                     const updatedXmlContent = await invoke('delete_mod', { modName: modName });
                     // 2. We load this new XML into our browser's DOM
                     await loadXmlContent(updatedXmlContent, currentFilePath);
@@ -462,26 +462,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const indent = '  '.repeat(indentLevel);
         
         let attributeList = Array.from(node.attributes);
-
-        // Get the name attribute for our checks
         const nameAttr = node.getAttribute('name');
 
-        // --- THIS IS THE FINAL, CORRECTED RULE ---
+        // Special rule 1: The main <Property name="Data"> container
         const isMainDataContainer = (
             nameAttr === 'Data' &&
             node.parentNode &&
             node.parentNode.tagName === 'Data'
         );
+        // Special rule 2: The <Property name="Dependencies" /> tag
         const isDependenciesTag = (nameAttr === 'Dependencies');
 
-        // If it's the main container OR it's the Dependencies tag...
+        // If either special rule applies, strip the 'value' attribute
         if (isMainDataContainer || isDependenciesTag) {
-            // ...then filter the list to REMOVE the "value" attribute.
             attributeList = attributeList.filter(attr => attr.name !== 'value');
         }
 
         const attributes = attributeList.map(attr => `${attr.name}="${escapeXml(attr.value)}"`).join(' ');
-        
         const tag = node.tagName;
         let nodeString = `${indent}<${tag}${attributes ? ' ' + attributes : ''}`;
 
@@ -492,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             nodeString += `${indent}</${tag}>\n`;
         } else {
+            // This correctly adds the space before the self-closing tag
             nodeString += ' />\n'; 
         }
         return nodeString;

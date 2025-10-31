@@ -46,8 +46,8 @@ struct ModEntry {
 struct TopLevelProperty {
     #[serde(rename = "@name")]
     name: String,
-    #[serde(rename = "@value", default, skip_serializing_if = "String::is_empty")]
-    value: String,
+    #[serde(rename = "@value", default)]
+    value: Option<String>, 
     #[serde(rename = "Property", default)]
     mods: Vec<ModEntry>,
 }
@@ -363,54 +363,38 @@ fn resize_window(window: tauri::Window, width: f64) -> Result<(), String> {
 
 #[tauri::command]
 fn delete_mod(mod_name: String) -> Result<String, String> {
-    // 1. Find Paths (No changes here)
+    // 1. Find Paths
     let game_path = find_game_path().ok_or_else(|| "Could not find game installation path.".to_string())?;
     let settings_file_path = game_path.join("Binaries").join("SETTINGS").join("GCMODSETTINGS.MXML");
     let mod_to_delete_path = game_path.join("GAMEDATA").join("MODS").join(&mod_name);
 
-    // 2. Delete the Mod Folder (No changes here)
+    // 2. Delete the Mod Folder
     if mod_to_delete_path.exists() {
         fs::remove_dir_all(&mod_to_delete_path)
             .map_err(|e| format!("Failed to delete mod folder for '{}': {}", mod_name, e))?;
     }
 
-    // 3. Read and Deserialize the XML file (No changes here)
+    // 3. Read and Deserialize
     let xml_content = fs::read_to_string(&settings_file_path)
         .map_err(|e| format!("Failed to read GCMODSETTINGS.MXML: {}", e))?;
-
     let mut root: SettingsData = from_str(&xml_content)
         .map_err(|e| format!("Failed to parse GCMODSETTINGS.MXML: {}", e))?;
 
-    // 4. Modify the data in the structs (THIS SECTION IS FIXED)
+    // 4. Modify the data in the structs
     for prop in root.properties.iter_mut() {
         if prop.name == "Data" {
-            let mods_to_keep: Vec<ModEntry> = prop.mods.clone().into_iter().filter(|entry| {
+            prop.mods.retain(|entry| {
                 if let Some(name_prop) = entry.properties.iter().find(|p| p.name == "Name") {
-                    
-                    // --- FIX FOR ERROR 1 (E0599) ---
-                    // Safely check if a name value exists before comparing.
                     if let Some(name_value) = &name_prop.value {
-                        // If there's a name, compare it. Keep if it DOESN'T match.
                         !name_value.eq_ignore_ascii_case(&mod_name)
-                    } else {
-                        // If a mod somehow has no name, keep it.
-                        true
-                    }
-
-                } else {
-                    true
-                }
-            }).collect();
-
-            prop.mods = mods_to_keep;
+                    } else { true }
+                } else { true }
+            });
 
             for (i, mod_entry) in prop.mods.iter_mut().enumerate() {
                 let new_index = i.to_string();
                 mod_entry.index = new_index.clone();
                 if let Some(priority_prop) = mod_entry.properties.iter_mut().find(|p| p.name == "ModPriority") {
-                    
-                    // --- FIX FOR ERROR 2 (E0308) ---
-                    // Wrap the String in Some() to match the Option<String> type.
                     priority_prop.value = Some(new_index);
                 }
             }
@@ -418,9 +402,8 @@ fn delete_mod(mod_name: String) -> Result<String, String> {
         }
     }
 
-    // 5. Serialize and return to JavaScript (No changes here)
-    let unformatted_xml = to_string(&root)
-        .map_err(|e| format!("Failed to serialize data to string: {}", e))?;
+    // 5. Serialize and Re-format
+    let unformatted_xml = to_string(&root).map_err(|e| e.to_string())?;
     let mut reader = Reader::from_str(&unformatted_xml);
     reader.trim_text(true);
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
@@ -428,13 +411,14 @@ fn delete_mod(mod_name: String) -> Result<String, String> {
         match reader.read_event() {
             Ok(Event::Eof) => break,
             Ok(event) => writer.write_event(event).unwrap(),
-            Err(e) => return Err(format!("Error at position {}: {:?}", reader.buffer_position(), e)),
+            Err(e) => return Err(format!("XML formatting error: {:?}", e)),
         }
     }
     let buf = writer.into_inner();
-    let xml_body = String::from_utf8(buf)
-        .map_err(|e| format!("Failed to convert formatted buffer to string: {}", e))?;
+    let xml_body = String::from_utf8(buf).map_err(|e| e.to_string())?;
     let final_content = format!("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n{}", xml_body);
+
+    // 6. Return the perfect content to JavaScript, DO NOT SAVE.
     Ok(final_content)
 }
 
