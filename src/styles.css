@@ -482,8 +482,20 @@ h3,
 	padding: 5px 10px;
 }
 
-.mod-name {
-	flex-grow: 1;
+/* This is the new main container that will stretch */
+.mod-name-container {
+	flex-grow: 1; /* Takes up all the free space */
+    display: flex; /* Aligns the text and indicator horizontally */
+    align-items: center; /* Vertically centers them */
+    min-width: 0; /* Important for preventing text overflow issues */
+}
+
+/* This is just for the text itself */
+.mod-name-text {
+    /* Truncate long mod names with an ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .priority {
@@ -669,6 +681,43 @@ label.switch:has(input:checked)::before {
     /* Adds a subtle glow to the selected mod */
     box-shadow: 0 0 8px 1px var(--accent-color);
     border: 1px solid rgba(241, 232, 209, 0.7);
+}
+
+/* --- UPDATE INDICATOR IN MOD LIST --- */
+.update-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #FFD700; /* Same gold color as the "latest version" text */
+    border-radius: 50%; /* Makes it a circle */
+    margin-left: 10px;
+    
+    /* A subtle glow to make it stand out */
+    box-shadow: 0 0 6px 1px #FFD700;
+
+    /* A gentle pulsing animation to draw the eye */
+    animation: pulse 2s infinite;
+}
+
+/* Define the pulsing animation */
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(255, 215, 0, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    }
+}
+
+/* Ensure our .hidden utility class works on it */
+.update-indicator.hidden {
+    display: none;
 }
 
 /* --- NEW INLINE MOD INFO PANEL --- */
