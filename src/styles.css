@@ -658,6 +658,34 @@ label.switch:has(input:checked)::before {
     margin-bottom: 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     padding-bottom: 8px;
+
+    /* --- ADD THESE LINES --- */
+    /* Use Flexbox to position the title and the button */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* --- ADD THIS NEW RULE FOR THE BUTTON --- */
+.nexus-button {
+    height: 24px; /* Adjust size as needed */
+    width: 24px;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.nexus-button:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.nexus-button.hidden {
+    display: none;
+}
+
+.nexus-button img {
+    height: 100%;
+    width: 100%;
 }
 
 .info-details {

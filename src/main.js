@@ -131,7 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
           infoAuthor = document.getElementById('infoAuthor'),
           infoInstalledVersion = document.getElementById('infoInstalledVersion'),
           infoLatestVersion = document.getElementById('infoLatestVersion'),
-          infoDescription = document.getElementById('infoDescription');
+          infoDescription = document.getElementById('infoDescription'),
+          infoNexusLink = document.getElementById('infoNexusLink');
 
     customCloseBtn.addEventListener('click', () => appWindow.close());
 
@@ -378,16 +379,45 @@ document.addEventListener('DOMContentLoaded', () => {
         languageSelector.value = savedLang;
         await i18n.loadLanguage(savedLang);
 
-        // --- ADD THIS BLOCK TO FETCH THE REMOTE DATABASE ---
+        // --- NEW CACHING LOGIC STARTS HERE ---
+        const dbUrl = 'https://raw.githubusercontent.com/Syzzle07/NMS-Mod-Manager/refs/heads/nms-mod-manager-redesign/modsdatabase/mod_database.json';
+        const localDbKey = 'mod_database_cache';
+        
+        // 1. Try to load the cached database from local storage first.
+        let localDatabase = null;
         try {
-            // REPLACE THIS URL with the "Raw" URL to your mod_database.json
-            const response = await fetch('https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/mod_database.json');
-            if (!response.ok) throw new Error('Network response was not ok');
-            remoteModDatabase = await response.json();
-            console.log("Successfully loaded remote mod database version:", remoteModDatabase.version);
-        } catch (error) {
-            console.error("Failed to fetch remote mod database:", error);
+            const cachedDbString = localStorage.getItem(localDbKey);
+            if (cachedDbString) {
+                localDatabase = JSON.parse(cachedDbString);
+                remoteModDatabase = localDatabase; // Use local data as a fallback
+                console.log(`Loaded cached mod database version: ${localDatabase.version}`);
+            }
+        } catch (e) {
+            console.error("Failed to parse cached mod database.", e);
         }
+
+        // 2. Now, fetch the remote database to check for updates.
+        try {
+            const response = await fetch(dbUrl);
+            if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+            
+            const remoteDatabase = await response.json();
+            console.log(`Fetched remote mod database version: ${remoteDatabase.version}`);
+
+            // 3. Compare versions. Only update if the remote is newer.
+            // The '?.' is optional chaining, safely handles case where localDatabase is null.
+            if (!localDatabase || remoteDatabase.version > localDatabase?.version) {
+                console.log("Remote database is newer. Updating cache.");
+                remoteModDatabase = remoteDatabase;
+                localStorage.setItem(localDbKey, JSON.stringify(remoteDatabase));
+            } else {
+                console.log("Local database is up to date. Using cache.");
+                // We already set remoteModDatabase to localDatabase, so we're good.
+            }
+        } catch (error) {
+            console.error("Failed to fetch remote mod database. Will use cached version if available.", error);
+        }
+        // --- CACHING LOGIC ENDS HERE ---
 
         gamePath = await invoke('get_game_path');
         const hasGamePath = !!gamePath;
@@ -645,6 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modFolderName = modRow.dataset.modName;
         
         // Reset panel to a loading state
+        infoNexusLink.classList.add('hidden');
         infoModName.textContent = modFolderName;
         infoAuthor.textContent = '...';
         infoInstalledVersion.textContent = '...';
@@ -678,12 +709,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Now, check for the latest version from the remote database
         if (remoteModDatabase && localModInfo && localModInfo.id) {
-            const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
-            if (remoteInfo) {
-                infoLatestVersion.textContent = remoteInfo.latest_version;
-                if (remoteInfo.latest_version !== localModInfo.version) {
-                    infoLatestVersion.classList.add('update-available');
-                }
+        const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
+        if (remoteInfo) {
+            infoLatestVersion.textContent = remoteInfo.latest_version;
+            if (remoteInfo.latest_version !== localModInfo.version) {
+                infoLatestVersion.classList.add('update-available');
+            }
+
+            // --- ADD THIS NEW LOGIC FOR THE LINK ---
+            // Check if the link exists in our database
+            if (remoteInfo.nexus_url) {
+                // If it does, set the 'href' attribute and show the button
+                infoNexusLink.href = remoteInfo.nexus_url;
+                infoNexusLink.classList.remove('hidden');
+            }
             } else {
                 infoLatestVersion.textContent = 'N/A';
             }
