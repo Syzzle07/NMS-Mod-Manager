@@ -631,39 +631,41 @@ label.switch:has(input:checked)::before {
     border: 1px solid rgba(241, 232, 209, 0.7);
 }
 
-/* --- NEW MOD INFO PANEL --- */
-.mod-info-panel {
-    margin-top: 10px; /* Space between the list and this panel */
-    padding: 15px 20px;
-    border-radius: 4px;
+/* --- NEW INLINE MOD INFO PANEL --- */
+.mod-info-panel-inline {
+    background-color: rgba(45, 38, 58, 0.85); /* Slightly tweaked for style */
     border: 1px solid rgba(255, 255, 255, 0.15);
-
-    /* The semi-transparent gradient background */
-    background-image: linear-gradient(
-        to bottom, 
-        rgba(30, 25, 40, 0.8),  /* Darker at the top */
-        rgba(50, 40, 65, 0.85)   /* Lighter at the bottom */
-    );
+    border-radius: 4px;
+    margin: 0 0 4px 0;
+    overflow: hidden;
     backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
 
-    /* Smooth transition for appearing/disappearing */
-    transition: opacity 0.3s ease-in-out;
+    /* Animation for expanding/collapsing */
+    transition: all 0.4s ease-in-out;
+    max-height: 0;
+    padding: 0 20px; /* Animate horizontal padding */
+    border-width: 0 1px;
+    opacity: 0;
+}
+
+.mod-info-panel-inline:not(.hidden) {
+    max-height: 500px; /* Animate to a large height */
+    padding-top: 15px;
+    padding-bottom: 15px;
+    margin-top: 10px;
+    border-width: 1px;
+    opacity: 1;
 }
 
 .info-header {
-    font-family: var(--font-primary);
-    font-size: 15pt;
-    color: var(--accent-color);
-    margin-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 8px;
-
-    /* --- ADD THESE LINES --- */
-    /* Use Flexbox to position the title and the button */
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-family: var(--font-primary);
+    font-size: 15pt;
+    color: var(--accent-color);
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* --- ADD THIS NEW RULE FOR THE BUTTON --- */
@@ -671,7 +673,7 @@ label.switch:has(input:checked)::before {
     height: 24px; /* Adjust size as needed */
     width: 24px;
     opacity: 0.7;
-    transition: opacity 0.2s, transform 0.2s;
+    transition: all 0.2s;
 }
 
 .nexus-button:hover {
@@ -688,17 +690,25 @@ label.switch:has(input:checked)::before {
     width: 100%;
 }
 
-.info-details {
+/* --- NEW Two-Column Body Layout --- */
+.info-body {
+    display: flex;
+    margin-top: 12px;
+    gap: 20px; /* Space between columns */
+}
+
+.info-meta-column {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    width: 200px; /* Give it a fixed width */
 }
 
 .info-line {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: baseline;
 }
 
 .info-label {
@@ -717,13 +727,31 @@ label.switch:has(input:checked)::before {
     font-weight: bold;
 }
 
+/* --- Vertical Divider --- */
+.info-divider {
+    width: 1px;
+    background-color: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+/* --- Column 2: Description --- */
+.info-description-column {
+    flex-grow: 1; /* Allow description to take up remaining space */
+    min-width: 0; /* Important for flexbox text wrapping */
+}
+
+.info-description-column .info-label {
+    margin-bottom: 6px;
+    display: block; /* Make the "Description" label a block */
+}
+
 .info-description {
     margin: 0;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
     font-size: 11pt;
     opacity: 0.8;
     line-height: 1.4;
+    /* Allow long descriptions to wrap */
+    word-wrap: break-word;
 }
 
 /* --- Scrollbar & Drop Zone & Modal --- */

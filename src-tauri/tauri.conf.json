@@ -40,7 +40,7 @@
         "transparent": true,
         "fullscreen": false,
         "minWidth": 670, 
-        "minHeight": 500,
+        "minHeight": 663,
         "maxWidth": 1920,
         "maxHeight": 960
       }

@@ -308,13 +308,23 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(dragTimer);
             document.removeEventListener('mouseup', handleMouseUpAsClick);
 
-            // --- SELECTION LOGIC ---
-            if (selectedModRow) {
-                selectedModRow.classList.remove('selected');
+            const previouslySelected = selectedModRow;
+            
+            // Deselect the old row
+            if (previouslySelected) {
+                previouslySelected.classList.remove('selected');
             }
-            selectedModRow = row;
-            selectedModRow.classList.add('selected');
-            displayModInfo(selectedModRow);
+
+            // If user clicked the same row again, hide the panel and deselect.
+            if (previouslySelected === row) {
+                selectedModRow = null;
+                modInfoPanel.classList.add('hidden');
+            } else {
+                // Otherwise, select the new row and show its info panel.
+                selectedModRow = row;
+                selectedModRow.classList.add('selected');
+                displayModInfo(row);
+            }
         };
 
         // Listen for the mouseup event on the whole document.
@@ -500,30 +510,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let rowToSelect = null;
 
         if (selectedModNameBeforeDrag) {
-            // --- This block now works for ALL cases ---
-            // It will find the row corresponding to the mod we just dragged,
-            // regardless of whether it was selected before or not.
             rowToSelect = modListContainer.querySelector(`.mod-row[data-mod-name="${selectedModNameBeforeDrag}"]`);
-            selectedModNameBeforeDrag = null; // Clear the variable
-
+            selectedModNameBeforeDrag = null;
         } else if (isInitialLoad) {
-            // --- Case 2: This is the very first app launch. ---
-            // Find the first mod in the list.
             rowToSelect = modListContainer.querySelector('.mod-row');
         }
 
         if (rowToSelect) {
-            // If we found a row to select (either from drag or initial load)...
             selectedModRow = rowToSelect;
             selectedModRow.classList.add('selected');
-            // We must call displayModInfo here to update the panel content.
             displayModInfo(selectedModRow);
-        } else if (isInitialLoad) {
-            // If it was the first load and there were no mods, hide the panel.
+        } else {
+            // If no mod is selected (e.g. empty list), hide the panel
             modInfoPanel.classList.add('hidden');
         }
 
-        // After the first load, this logic is disabled.
         if (isInitialLoad) {
             isInitialLoad = false;
         }
@@ -672,62 +673,48 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {HTMLElement} modRow The mod row element that was clicked.
      */
     async function displayModInfo(modRow) {
-        const modFolderName = modRow.dataset.modName;
-        
+        // Position the panel directly after the clicked row
+        modRow.after(modInfoPanel);
+
         // Reset panel to a loading state
         infoNexusLink.classList.add('hidden');
-        infoModName.textContent = modFolderName;
+        infoModName.textContent = modRow.dataset.modName;
         infoAuthor.textContent = '...';
         infoInstalledVersion.textContent = '...';
         infoLatestVersion.textContent = '...';
         infoLatestVersion.classList.remove('update-available');
         infoDescription.textContent = 'Loading mod details...';
 
+        // Show the panel (triggers the animation)
         modInfoPanel.classList.remove('hidden');
 
+        // --- (The rest of the data fetching logic is the same and correct) ---
         let localModInfo = null;
         try {
-            const modInfoPath = await join(gamePath, 'GAMEDATA', 'MODS', modFolderName, 'mod_info.json');
-            const content = await readTextFile(modInfoPath);
-            localModInfo = JSON.parse(content);
+            const modInfoPath = await join(gamePath, 'GAMEDATA', 'MODS', modRow.dataset.modName, 'mod_info.json');
+            localModInfo = JSON.parse(await readTextFile(modInfoPath));
 
-            // Populate panel with local info
-            infoModName.textContent = localModInfo.name || modFolderName;
+            infoModName.textContent = localModInfo.name || modRow.dataset.modName;
             infoAuthor.textContent = localModInfo.author || 'Unknown';
             infoInstalledVersion.textContent = localModInfo.version || 'N/A';
             infoDescription.textContent = localModInfo.description || 'No description provided.';
-
         } catch (error) {
-            // mod_info.json doesn't exist or is invalid
-            infoModName.textContent = modFolderName;
-            infoAuthor.textContent = 'Unknown';
-            infoInstalledVersion.textContent = 'N/A';
-            infoLatestVersion.textContent = 'N/A';
             infoDescription.textContent = 'No local mod info file found.';
-            return; // Stop here if we have no local info
+            return;
         }
 
-        // Now, check for the latest version from the remote database
-        if (remoteModDatabase && localModInfo && localModInfo.id) {
-        const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
-        if (remoteInfo) {
-            infoLatestVersion.textContent = remoteInfo.latest_version;
-            if (remoteInfo.latest_version !== localModInfo.version) {
-                infoLatestVersion.classList.add('update-available');
+        if (remoteModDatabase && localModInfo?.id) {
+            const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
+            if (remoteInfo) {
+                infoLatestVersion.textContent = remoteInfo.latest_version;
+                if (remoteInfo.latest_version !== localModInfo.version) {
+                    infoLatestVersion.classList.add('update-available');
+                }
+                if (remoteInfo.nexus_url) {
+                    infoNexusLink.href = remoteInfo.nexus_url;
+                    infoNexusLink.classList.remove('hidden');
+                }
             }
-
-            // --- ADD THIS NEW LOGIC FOR THE LINK ---
-            // Check if the link exists in our database
-            if (remoteInfo.nexus_url) {
-                // If it does, set the 'href' attribute and show the button
-                infoNexusLink.href = remoteInfo.nexus_url;
-                infoNexusLink.classList.remove('hidden');
-            }
-            } else {
-                infoLatestVersion.textContent = 'N/A';
-            }
-        } else {
-            infoLatestVersion.textContent = 'N/A';
         }
     }
 
