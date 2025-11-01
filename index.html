@@ -66,6 +66,28 @@
           <span class="enabled" data-i18n="enabledHeader">Enabled</span>
         </div>
         <div id="modListContainer" class="mod-list"></div>
+        <!-- === INSERT THE NEW MOD INFO PANEL HERE === -->
+        <div id="modInfoPanel" class="mod-info-panel hidden">
+            <div class="info-header">
+                <span id="infoModName" data-i18n="infoDefaultTitle">Select a mod to see details</span>
+            </div>
+            <div class="info-details">
+                <div class="info-line">
+                    <span class="info-label" data-i18n="infoAuthorLabel">AUTHOR</span>
+                    <span id="infoAuthor" class="info-value">N/A</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label" data-i18n="infoInstalledLabel">INSTALLED</span>
+                    <span id="infoInstalledVersion" class="info-value">N/A</span>
+                </div>
+                <div class="info-line">
+                    <span class="info-label" data-i18n="infoLatestLabel">LATEST</span>
+                    <span id="infoLatestVersion" class="info-value">N/A</span>
+                </div>
+            </div>
+            <p id="infoDescription" class="info-description"></p>
+        </div>
+        <!-- === END OF NEW PANEL === -->
         <div id="dropZone" class="drop-zone hidden">
           <span data-i18n="dropZoneText">DROP .ZIP OR .RAR FILES HERE TO INSTALL MODS</span>
         </div>

@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetY = 0;
     let originalNextSibling = null;
     let dragTimer = null;
+    let selectedModRow = null;
+    let remoteModDatabase = null;
+    let isInitialLoad = true;
+    let selectedModNameBeforeDrag = null;
 
     // --- Make the Window Wider based on Language ---
     // const mainContent = document.querySelector('.main-content');
@@ -120,7 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
           languageSelector = document.getElementById('languageSelector'),
           enableAllBtn = document.getElementById('enableAllBtn'),
           disableAllBtn = document.getElementById('disableAllBtn'),
-          customCloseBtn = document.getElementById('customCloseBtn');
+          customCloseBtn = document.getElementById('customCloseBtn'),
+
+          modInfoPanel = document.getElementById('modInfoPanel'),
+          infoModName = document.getElementById('infoModName'),
+          infoAuthor = document.getElementById('infoAuthor'),
+          infoInstalledVersion = document.getElementById('infoInstalledVersion'),
+          infoLatestVersion = document.getElementById('infoLatestVersion'),
+          infoDescription = document.getElementById('infoDescription');
 
     customCloseBtn.addEventListener('click', () => appWindow.close());
 
@@ -230,55 +241,100 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // AFTER (The new, correct function)
     function onMouseUp(e) {
-        if (!draggedElement || !ghostElement || !placeholder) {
+        // 1. First, check if a drag was even active.
+        if (!draggedElement) {
+            // This can happen if the mousedown was cancelled.
+            // Ensure all listeners are cleaned up just in case.
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
             return;
         }
+
+        // 2. Perform the drop logic.
         const dropTarget = e.target.closest('#modListContainer');
-        if (dropTarget) {
+        let successfulDrop = false;
+
+        if (dropTarget && placeholder.parentNode) {
+            // Place the real element where the placeholder is.
             placeholder.parentNode.insertBefore(draggedElement, placeholder);
-            const finalModOrder = Array.from(modListContainer.querySelectorAll('.mod-row')).map(row => row.dataset.modName);
-            reorderModsByList(finalModOrder);
-        } else {
-            modListContainer.insertBefore(draggedElement, originalNextSibling);
-            renderModList(); 
+            successfulDrop = true;
         }
+
+        // 3. IMPORTANT: Perform all cleanup immediately.
         draggedElement.classList.remove('is-dragging');
-        document.body.removeChild(ghostElement);
-        if (placeholder.parentNode) {
-            placeholder.parentNode.removeChild(placeholder);
-        }
+        if (ghostElement) document.body.removeChild(ghostElement);
+        if (placeholder) placeholder.remove(); // .remove() is safer than removeChild
+
+        // Nullify all state variables.
         draggedElement = null;
         ghostElement = null;
         placeholder = null;
         originalNextSibling = null;
+
+        // Remove the global listeners.
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+
+        // 4. FINALLY, if the drop was successful, update the data and re-render.
+        if (successfulDrop) {
+            const finalModOrder = Array.from(modListContainer.querySelectorAll('.mod-row')).map(row => row.dataset.modName);
+            reorderModsByList(finalModOrder);
+        } else {
+            // If the drop was outside the target, we need to refresh the list
+            // to restore the original order, as we didn't save any changes.
+            renderModList();
+        }
     }
 
     modListContainer.addEventListener('mousedown', (e) => {
+        // Initial checks for switch clicks or wrong mouse button
         if (e.target.closest('.switch') || e.button !== 0) {
             return;
         }
         const row = e.target.closest('.mod-row');
         if (!row) return;
 
+        // Prevent default text selection behavior
         e.preventDefault();
 
-        const DRAG_DELAY = 100; // The delay in milliseconds
-        const cancelDragStart = () => {
-            clearTimeout(dragTimer);
-            document.removeEventListener('mouseup', cancelDragStart);
-        };
-        document.addEventListener('mouseup', cancelDragStart);
+        const DRAG_DELAY = 200;
 
-        // Start a timer. If it completes, the drag will begin.
+        // This function will now ONLY run if the mouse is released before the drag timer.
+        // We consider this a "click" action.
+        const handleMouseUpAsClick = () => {
+            clearTimeout(dragTimer);
+            document.removeEventListener('mouseup', handleMouseUpAsClick);
+
+            // --- SELECTION LOGIC ---
+            if (selectedModRow) {
+                selectedModRow.classList.remove('selected');
+            }
+            selectedModRow = row;
+            selectedModRow.classList.add('selected');
+            displayModInfo(selectedModRow);
+        };
+
+        // Listen for the mouseup event on the whole document.
+        document.addEventListener('mouseup', handleMouseUpAsClick);
+
+        // Start the timer for the drag operation.
         dragTimer = setTimeout(() => {
-            // The timer finished, so the user held the click.
-            document.removeEventListener('mouseup', cancelDragStart);
+            // The timer finished, so it's a "drag" action.
+            // First, we must remove the "click" handler so it doesn't fire when the drag ends.
+            document.removeEventListener('mouseup', handleMouseUpAsClick);
+
+            // --- DRAG INITIATION LOGIC  ---
             draggedElement = row;
+
+            // --- SIMPLIFIED LOGIC ---
+            // Always store the name of the mod we are about to drag.
+            selectedModNameBeforeDrag = draggedElement.dataset.modName;
+
+            if (selectedModRow) {
+                selectedModRow.classList.remove('selected');
+            }
             originalNextSibling = draggedElement.nextSibling;
             const rect = draggedElement.getBoundingClientRect();
             offsetX = e.clientX - rect.left;
@@ -294,10 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ghostElement.style.top = `${e.clientY - offsetY}px`;
             draggedElement.parentNode.insertBefore(placeholder, draggedElement);
             draggedElement.classList.add('is-dragging');
-            
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
-
         }, DRAG_DELAY);
     });
     // REORDER END
@@ -323,6 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedLang = localStorage.getItem('selectedLanguage') || 'en';
         languageSelector.value = savedLang;
         await i18n.loadLanguage(savedLang);
+
+        // --- ADD THIS BLOCK TO FETCH THE REMOTE DATABASE ---
+        try {
+            // REPLACE THIS URL with the "Raw" URL to your mod_database.json
+            const response = await fetch('https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/mod_database.json');
+            if (!response.ok) throw new Error('Network response was not ok');
+            remoteModDatabase = await response.json();
+            console.log("Successfully loaded remote mod database version:", remoteModDatabase.version);
+        } catch (error) {
+            console.error("Failed to fetch remote mod database:", error);
+        }
+
         gamePath = await invoke('get_game_path');
         const hasGamePath = !!gamePath;
         openModsFolderBtn.disabled = !hasGamePath;
@@ -399,6 +465,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         isPopulating = false;
         filterModList();
+        // --- REPLACE THE OLD AUTO-SELECTION BLOCK WITH THIS NEW, COMBINED LOGIC ---
+
+        let rowToSelect = null;
+
+        if (selectedModNameBeforeDrag) {
+            // --- This block now works for ALL cases ---
+            // It will find the row corresponding to the mod we just dragged,
+            // regardless of whether it was selected before or not.
+            rowToSelect = modListContainer.querySelector(`.mod-row[data-mod-name="${selectedModNameBeforeDrag}"]`);
+            selectedModNameBeforeDrag = null; // Clear the variable
+
+        } else if (isInitialLoad) {
+            // --- Case 2: This is the very first app launch. ---
+            // Find the first mod in the list.
+            rowToSelect = modListContainer.querySelector('.mod-row');
+        }
+
+        if (rowToSelect) {
+            // If we found a row to select (either from drag or initial load)...
+            selectedModRow = rowToSelect;
+            selectedModRow.classList.add('selected');
+            // We must call displayModInfo here to update the panel content.
+            displayModInfo(selectedModRow);
+        } else if (isInitialLoad) {
+            // If it was the first load and there were no mods, hide the panel.
+            modInfoPanel.classList.add('hidden');
+        }
+
+        // After the first load, this logic is disabled.
+        if (isInitialLoad) {
+            isInitialLoad = false;
+        }
     };
 
     const reorderModsByList = (orderedModNames) => {
@@ -538,6 +636,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return nodeString;
     };
+
+    /**
+     * Reads local mod info and compares with remote DB to update the info panel.
+     * @param {HTMLElement} modRow The mod row element that was clicked.
+     */
+    async function displayModInfo(modRow) {
+        const modFolderName = modRow.dataset.modName;
+        
+        // Reset panel to a loading state
+        infoModName.textContent = modFolderName;
+        infoAuthor.textContent = '...';
+        infoInstalledVersion.textContent = '...';
+        infoLatestVersion.textContent = '...';
+        infoLatestVersion.classList.remove('update-available');
+        infoDescription.textContent = 'Loading mod details...';
+
+        modInfoPanel.classList.remove('hidden');
+
+        let localModInfo = null;
+        try {
+            const modInfoPath = await join(gamePath, 'GAMEDATA', 'MODS', modFolderName, 'mod_info.json');
+            const content = await readTextFile(modInfoPath);
+            localModInfo = JSON.parse(content);
+
+            // Populate panel with local info
+            infoModName.textContent = localModInfo.name || modFolderName;
+            infoAuthor.textContent = localModInfo.author || 'Unknown';
+            infoInstalledVersion.textContent = localModInfo.version || 'N/A';
+            infoDescription.textContent = localModInfo.description || 'No description provided.';
+
+        } catch (error) {
+            // mod_info.json doesn't exist or is invalid
+            infoModName.textContent = modFolderName;
+            infoAuthor.textContent = 'Unknown';
+            infoInstalledVersion.textContent = 'N/A';
+            infoLatestVersion.textContent = 'N/A';
+            infoDescription.textContent = 'No local mod info file found.';
+            return; // Stop here if we have no local info
+        }
+
+        // Now, check for the latest version from the remote database
+        if (remoteModDatabase && localModInfo && localModInfo.id) {
+            const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
+            if (remoteInfo) {
+                infoLatestVersion.textContent = remoteInfo.latest_version;
+                if (remoteInfo.latest_version !== localModInfo.version) {
+                    infoLatestVersion.classList.add('update-available');
+                }
+            } else {
+                infoLatestVersion.textContent = 'N/A';
+            }
+        } else {
+            infoLatestVersion.textContent = 'N/A';
+        }
+    }
+
+    // --- MOD PANEL END ---
 
     loadFileBtn.addEventListener('click', async () => {
         let startDir = gamePath ? `${gamePath}\\Binaries\\SETTINGS` : undefined;
