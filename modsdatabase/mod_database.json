@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "last_updated": "2025-11-01",
+  "mods": [
+    {
+      "id": "better-base-sites-bladehawke",
+      "latest_version": "6.0.5",
+      "nexus_url": "https://www.nexusmods.com/nomanssky/mods/1647"
+    },
+    {
+      "id": "quick-fish-release-syzzle",
+      "latest_version": "6.05",
+      "nexus_url": "https://www.nexusmods.com/nomanssky/mods/3813"
+    }
+  ]
+}
