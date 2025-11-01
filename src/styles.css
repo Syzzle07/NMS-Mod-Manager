@@ -105,6 +105,46 @@ header {
     pointer-events: none;
 }
 
+/* --- ADD THESE NEW RULES FOR THE TEXT BUTTON --- */
+.header-button {
+    display: flex; /* Aligns the icon and text horizontally */
+    align-items: center;
+    gap: 8px; /* Space between the icon and text */
+    padding: 3px 4px; /* Give it some nice padding */
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 0px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.header-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--accent-color);
+}
+
+.header-button img {
+    height: 20px; /* Make the icon inside the button a bit smaller */
+}
+
+.header-button .button-text {
+    font-size: 11pt;
+    font-family: var(--font-primary);
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.header-button:hover .button-text {
+    opacity: 1;
+}
+
+/* Rule to disable the button */
+.header-button.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .language-selector-container {
 	bottom: 4px;
 	right: 15px;
@@ -842,6 +882,62 @@ label.switch:has(input:checked)::before {
 	justify-content: center;
 	margin-top: 20px;
 }
+
+/* --- UPDATE MODAL STYLES --- */
+.update-modal {
+    max-width: 600px; /* A wider modal for the list */
+    text-align: left;
+}
+
+.update-list-container {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    max-height: 400px; /* Limit the height and allow scrolling */
+    overflow-y: auto;
+    /* Add some padding on the right to make space for the scrollbar */
+    padding-right: 10px;
+}
+
+.update-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    margin-bottom: 8px;
+}
+
+.update-item-info {
+    flex-grow: 1;
+}
+
+.update-item-name {
+    font-size: 13pt;
+    font-family: var(--font-primary);
+    color: var(--accent-color);
+}
+
+.update-item-version {
+    font-size: 11pt;
+    opacity: 0.8;
+}
+
+.update-item-version .arrow {
+    color: var(--accent-color);
+    margin: 0 8px;
+}
+
+.update-item-version .latest {
+    color: #FFD700; /* Gold color for the new version */
+    font-weight: bold;
+}
+
+.update-item .nexus-button {
+    flex-shrink: 0;
+    margin-left: 15px;
+}
+
 /* ==========================================================================
    5. Context Menu
    ========================================================================== */

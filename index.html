@@ -10,6 +10,10 @@
     <header data-tauri-drag-region>
       <img src="/src/assets/banner.png" alt="NMS Mod Manager" id="banner-img" draggable="false" />
       <div class="custom-controls">
+        <div id="updateCheckBtn" class="header-button">
+            <img src="/src/assets/icon-update.png" alt="Check for Updates" />
+            <span class="button-text" data-i18n="updateCheckBtn">Check for Updates</span>
+        </div>
         <img src="/src/assets/icon-troubleshoot.png" alt="Troubleshoot" id="troubleshootBtn" />
         <img src="/src/assets/icon-close.png" alt="Close" id="customCloseBtn" />
       </div>
@@ -133,6 +137,17 @@
             </div>
         </div>
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <div id="updateModalOverlay" class="modal-overlay hidden">
+      <div class="modal-content update-modal">
+          <h2 data-i18n="updateModalTitle">Mod Updates Found</h2>
+          <div id="updateListContainer" class="update-list-container">
+              <!-- Update items will be injected here by JavaScript -->
+          </div>
+          <div class="modal-actions">
+              <button id="closeUpdateModalBtn" class="modal-btn-cancel" data-i18n="updateModalCloseBtn">Close</button>
+          </div>
+      </div>
+   </div>
+   <script type="module" src="/src/main.js"></script>
   </body>
 </html>

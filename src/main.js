@@ -132,7 +132,12 @@ document.addEventListener('DOMContentLoaded', () => {
           infoInstalledVersion = document.getElementById('infoInstalledVersion'),
           infoLatestVersion = document.getElementById('infoLatestVersion'),
           infoDescription = document.getElementById('infoDescription'),
-          infoNexusLink = document.getElementById('infoNexusLink');
+          infoNexusLink = document.getElementById('infoNexusLink'),
+
+          updateCheckBtn = document.getElementById('updateCheckBtn'),
+          updateModalOverlay = document.getElementById('updateModalOverlay'),
+          updateListContainer = document.getElementById('updateListContainer'),
+          closeUpdateModalBtn = document.getElementById('closeUpdateModalBtn');
 
     customCloseBtn.addEventListener('click', () => appWindow.close());
 
@@ -433,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasGamePath = !!gamePath;
         openModsFolderBtn.disabled = !hasGamePath;
         troubleshootBtn.classList.toggle('disabled', !hasGamePath);
+        updateCheckBtn.classList.toggle('disabled', !hasGamePath);
         enableAllBtn.classList.toggle('disabled', !hasGamePath);
         disableAllBtn.classList.toggle('disabled', !hasGamePath);
         dropZone.classList.toggle('hidden', !hasGamePath);
@@ -505,29 +511,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         isPopulating = false;
         filterModList();
-        // --- REPLACE THE OLD AUTO-SELECTION BLOCK WITH THIS NEW, COMBINED LOGIC ---
-
-        let rowToSelect = null;
-
-        if (selectedModNameBeforeDrag) {
-            rowToSelect = modListContainer.querySelector(`.mod-row[data-mod-name="${selectedModNameBeforeDrag}"]`);
-            selectedModNameBeforeDrag = null;
-        } else if (isInitialLoad) {
-            rowToSelect = modListContainer.querySelector('.mod-row');
-        }
-
-        if (rowToSelect) {
-            selectedModRow = rowToSelect;
-            selectedModRow.classList.add('selected');
-            displayModInfo(selectedModRow);
-        } else {
-            // If no mod is selected (e.g. empty list), hide the panel
-            modInfoPanel.classList.add('hidden');
-        }
-
-        if (isInitialLoad) {
-            isInitialLoad = false;
-        }
     };
 
     const reorderModsByList = (orderedModNames) => {
@@ -668,10 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return nodeString;
     };
 
-    /**
-     * Reads local mod info and compares with remote DB to update the info panel.
-     * @param {HTMLElement} modRow The mod row element that was clicked.
-     */
+    /* Reads local mod info and compares with remote DB to update the info panel. */
     async function displayModInfo(modRow) {
         // Position the panel directly after the clicked row
         modRow.after(modInfoPanel);
@@ -717,8 +697,92 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-
     // --- MOD PANEL END ---
+
+    // --- CHECK UPDATES BUTTON ---
+    async function checkForUpdates() {
+        // First, ensure the remote database is loaded.
+        if (!remoteModDatabase) {
+            alert(i18n.get('errorNoRemoteDb'));
+            return;
+        }
+        
+        // Show a temporary "checking" message
+        updateListContainer.innerHTML = `<p>${i18n.get('updateChecking')}</p>`;
+        updateModalOverlay.classList.remove('hidden');
+
+        const modsWithUpdates = [];
+        const modFolders = Array.from(modListContainer.querySelectorAll('.mod-row'));
+
+        for (const modRow of modFolders) {
+            const modFolderName = modRow.dataset.modName;
+            let localModInfo = null;
+            
+            try {
+                const modInfoPath = await join(gamePath, 'GAMEDATA', 'MODS', modFolderName, 'mod_info.json');
+                const content = await readTextFile(modInfoPath);
+                localModInfo = JSON.parse(content);
+
+                if (localModInfo.id && localModInfo.version) {
+                    const remoteInfo = remoteModDatabase.mods.find(mod => mod.id === localModInfo.id);
+                    
+                    if (remoteInfo && remoteInfo.latest_version !== localModInfo.version) {
+                        // We found an outdated mod!
+                        modsWithUpdates.push({
+                            name: localModInfo.name || modFolderName,
+                            installed: localModInfo.version,
+                            latest: remoteInfo.latest_version,
+                            nexusUrl: remoteInfo.nexus_url
+                        });
+                    }
+                }
+            } catch (error) {
+                // This folder doesn't have a valid mod_info.json, so we skip it.
+                continue;
+            }
+        }
+
+        // Now, display the results.
+        if (modsWithUpdates.length > 0) {
+            updateListContainer.innerHTML = ''; // Clear the "checking" message
+            modsWithUpdates.forEach(mod => {
+                const item = document.createElement('div');
+                item.className = 'update-item';
+
+                // We can re-use the Nexus button from the info panel, but it needs a unique href
+                const nexusLinkHtml = mod.nexusUrl
+                    ? `<a href="${mod.nexusUrl}" class="nexus-button" target="_blank" title="Visit on Nexus Mods"><img src="/src/assets/icon-nexus.png" alt="Nexus"></a>`
+                    : '';
+
+                item.innerHTML = `
+                    <div class="update-item-info">
+                        <div class="update-item-name">${mod.name}</div>
+                        <div class="update-item-version">
+                            ${mod.installed} <span class="arrow">--></span> <span class="latest">${mod.latest}</span>
+                        </div>
+                    </div>
+                    ${nexusLinkHtml}
+                `;
+                updateListContainer.appendChild(item);
+            });
+        } else {
+            // No updates were found
+            updateListContainer.innerHTML = `<p>${i18n.get('updateNoneFound')}</p>`;
+        }
+    }
+
+    updateCheckBtn.addEventListener('click', checkForUpdates);
+    closeUpdateModalBtn.addEventListener('click', () => {
+        updateModalOverlay.classList.add('hidden');
+    });
+    // Also allow clicking the background to close it
+    updateModalOverlay.addEventListener('click', (e) => {
+        if (e.target === updateModalOverlay) {
+            updateModalOverlay.classList.add('hidden');
+        }
+    });
+
+    // --- CHECK UPDATES BUTTON END ---
 
     loadFileBtn.addEventListener('click', async () => {
         let startDir = gamePath ? `${gamePath}\\Binaries\\SETTINGS` : undefined;
