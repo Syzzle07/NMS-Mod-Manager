@@ -1,0 +1,18 @@
+[
+  {
+    "id": "2092",
+    "blacklist": true,
+    "notes": "Mod is using PAK format that doesn't work with the game anymore."
+  },
+  {
+    "id": "1647",
+    "blacklist": false,
+    "state": "warning",
+    "warningMessage": "This mod is known to conflict with other mods."
+  },
+  {
+    "id": "2584",
+    "whitelist": true,
+    "notes": "Example whitelisted mod: Fast Actions. Old but still works."
+  }
+]
