@@ -62,6 +62,7 @@ async function buildCuratedList() {
         mod_downloads: modData.mod_downloads,
         endorsement_count: modData.endorsement_count,
         updated_timestamp: modData.updated_timestamp,
+        created_timestamp: modData.created_timestamp,
         // Merge the warning info
         state: warningInfo ? warningInfo.state : 'normal',
         warningMessage: warningInfo ? warningInfo.warningMessage : ''
@@ -82,3 +83,4 @@ buildCuratedList().catch(error => {
   console.error("Script failed:", error);
   process.exit(1);
 });
+
