@@ -1,39 +1,80 @@
 [
   {
-    "id": "3813", 
-    "whitelisted": true,
+    "mod_id": 3813,
+    "name": "Quick Fish Release",
+    "summary": "Your inventory won't close anymore after releasing a fish, allowing you to release multiple fishes faster.",
+    "version": "6.05",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3813/3813-1758578337-1112025171.png",
+    "author": "Syzzle",
+    "mod_downloads": 638,
+    "endorsement_count": 17,
+    "updated_timestamp": 1758578408,
     "state": "normal",
     "warningMessage": ""
   },
   {
-    "id": "1647",
-    "whitelisted": false,
+    "mod_id": 1647,
+    "name": "Better Base Sites",
+    "summary": "Causes better base sites to be discoverable via the Secure Site planetary charts.  These will be large flat areas with a base computer in the center.",
+    "version": "6.0.5",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/1647/1647-1596700597-586096860.png",
+    "author": "Bladehawke",
+    "mod_downloads": 9521,
+    "endorsement_count": 336,
+    "updated_timestamp": 1758042288,
     "state": "warning",
-    "warningMessage": "This mod is known to conflict with other mods."
+    "warningMessage": "This mod is known to conflict with XYZ. Use with caution."
   },
   {
-    "id": "2584",
-    "whitelisted": false,
+    "mod_id": 2584,
+    "name": "sProtect - No Tech Damage with Shield Up",
+    "summary": "Disables Tech Damage while your Shield still up, your Techs will only be damaged if your shield goes down.",
+    "version": "6.02",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/2584/2584-1667569410-743119817.jpeg",
+    "author": "Syzzle",
+    "mod_downloads": 4928,
+    "endorsement_count": 140,
+    "updated_timestamp": 1756858033,
     "state": "normal",
     "warningMessage": ""
   },
   {
-    "id": "3832",
-    "whitelisted": false,
+    "mod_id": 3832,
+    "name": "Pirate Station Corvette Teleport",
+    "summary": "Add the Corvette teleport pads to the Outlaw Stations.",
+    "version": "6.11a",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3832/3832-1759096108-461570203.png",
+    "author": "Syzzle",
+    "mod_downloads": 1688,
+    "endorsement_count": 48,
+    "updated_timestamp": 1761409473,
     "state": "normal",
     "warningMessage": ""
   },
   {
-    "id": "3828",
-    "whitelisted": false,
-    "state": "normal",
-    "warningMessage": ""
+    "mod_id": 3828,
+    "name": "Better Abandoned Station",
+    "summary": "The mod add the Starship Fabricator and the Corvette teleport pads to Abandoned Stations.",
+    "version": "6.11a",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3828/3828-1759027329-917244973.png",
+    "author": "Syzzle",
+    "mod_downloads": 1297,
+    "endorsement_count": 37,
+    "updated_timestamp": 1761409527,
+    "state": "warning",
+    "warningMessage": "This mod uses MBIN files, might conflict with other mods changing the same MBIN file."
   },
   {
-    "id": "3360",
-    "whitelisted": false,
+    "mod_id": 3360,
+    "name": "sHealthcare - Health Station Life Support",
+    "summary": "Makes the Health Station recover both your HP and your Life Support meter.",
+    "version": "6.04",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3360/3360-1739229183-1269491854.png",
+    "author": "Syzzle",
+    "mod_downloads": 882,
+    "endorsement_count": 34,
+    "updated_timestamp": 1757864515,
     "state": "normal",
     "warningMessage": ""
   }
-
 ]
