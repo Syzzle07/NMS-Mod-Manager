@@ -6,8 +6,8 @@
   },
   {
     "id": "1647",
-    "state": "warning",
-    "warningMessage": "This mod is known to conflict with XYZ. Use with caution."
+    "state": "normal",
+    "warningMessage": ""
   },
   {
     "id": "2584",
@@ -45,3 +45,4 @@
     "warningMessage": ""
   }
 ]
+
