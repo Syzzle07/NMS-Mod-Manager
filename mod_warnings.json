@@ -16,8 +16,8 @@
   },
   {
     "id": "3832",
-    "state": "normal",
-    "warningMessage": ""
+    "state": "warning",
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
   },
   {
     "id": "3828",
@@ -45,4 +45,5 @@
     "warningMessage": ""
   }
 ]
+
 
