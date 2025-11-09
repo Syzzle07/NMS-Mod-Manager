@@ -6,9 +6,10 @@
     "version": "6.05",
     "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3813/3813-1758578337-1112025171.png",
     "author": "Syzzle",
-    "mod_downloads": 640,
+    "mod_downloads": 643,
     "endorsement_count": 17,
     "updated_timestamp": 1758578408,
+    "created_timestamp": 1758578408,
     "state": "normal",
     "warningMessage": ""
   },
@@ -22,6 +23,7 @@
     "mod_downloads": 9523,
     "endorsement_count": 336,
     "updated_timestamp": 1758042288,
+    "created_timestamp": 1596701082,
     "state": "warning",
     "warningMessage": "This mod is known to conflict with XYZ. Use with caution."
   },
@@ -35,6 +37,7 @@
     "mod_downloads": 4928,
     "endorsement_count": 140,
     "updated_timestamp": 1756858033,
+    "created_timestamp": 1667570167,
     "state": "normal",
     "warningMessage": ""
   },
@@ -48,6 +51,7 @@
     "mod_downloads": 1693,
     "endorsement_count": 49,
     "updated_timestamp": 1761409473,
+    "created_timestamp": 1759096241,
     "state": "normal",
     "warningMessage": ""
   },
@@ -61,6 +65,7 @@
     "mod_downloads": 1303,
     "endorsement_count": 38,
     "updated_timestamp": 1761409527,
+    "created_timestamp": 1759027453,
     "state": "warning",
     "warningMessage": "This mod uses MBIN files, might conflict with other mods changing the same MBIN file."
   },
@@ -74,6 +79,7 @@
     "mod_downloads": 882,
     "endorsement_count": 34,
     "updated_timestamp": 1757864515,
+    "created_timestamp": 1739229386,
     "state": "normal",
     "warningMessage": ""
   }
