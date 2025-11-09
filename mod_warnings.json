@@ -1,0 +1,32 @@
+[
+  {
+    "id": "3813",
+    "state": "normal",
+    "warningMessage": ""
+  },
+  {
+    "id": "1647",
+    "state": "warning",
+    "warningMessage": "This mod is known to conflict with XYZ. Use with caution."
+  },
+  {
+    "id": "2584",
+    "state": "normal",
+    "warningMessage": ""
+  },
+  {
+    "id": "3832",
+    "state": "normal",
+    "warningMessage": ""
+  },
+  {
+    "id": "3828",
+    "state": "warning",
+    "warningMessage": "This mod uses MBIN files, might conflict with other mods changing the same MBIN file."
+  },
+  {
+    "id": "3360",
+    "state": "normal",
+    "warningMessage": ""
+  }
+]
