@@ -6,11 +6,11 @@
     "version": "6.05",
     "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3813/3813-1758578337-1112025171.png",
     "author": "Syzzle",
-    "mod_downloads": 645,
+    "mod_downloads": 647,
     "endorsement_count": 17,
     "updated_timestamp": 1758578408,
     "created_timestamp": 1758578408,
-    "description": "After playing around with fishing in the expedition I realized how painful it was to release multiple fishes with the inventory closing everytime you released one, so I made this mod for myself to use and uploading it for anyone else that also is annoyed by it, the mod basically makes it not close the inventory when you release a fish.\n<br />\n<br />Before uploading I looked around and found that someone had already done this mod before, it was [url=https://next.nexusmods.com/profile/brehny/mods]brehny[/url]﻿, but their mod was outdated and still using the old method with PAKs that the game doesn't use anymore, after contacting them, they said they were out of the NMS loop and that I was allowed to upload my mod.\n<br />[size=2]They also made their own mod hidden hence why I can't link it here as credit for making it first.[/size][size=1]\n<br />[/size]\n<br />[b][size=5][url=https://antifandom.com/nomanssky/wiki/Mods#Installing_Mods][color=#ffff00]Click Here for Instructions of how to Install Mods[/color][/url][/size][/b]",
+    "description": "After playing around with fishing in the expedition I realized how painful it was to release multiple fishes with the inventory closing everytime you released one, so I made this mod for myself to use and uploading it for anyone else that also is annoyed by it, the mod basically makes it not close the inventory when you release a fish.\n<br />\n<br />Before uploading I looked around and found that someone had already done this mod before, it was [url=https://next.nexusmods.com/profile/brehny/mods]brehny[/url]﻿, but their mod was outdated and still using the old method with PAKs that the game doesn't use anymore, after contacting them, they said they were out of the NMS loop and that I was allowed to upload my mod.\n<br />[size=2]They also made their own mod hidden hence why I can't link it here as credit for making it first.[/size][size=1]\n<br />[/size]\n<br />\n<br />[quote][size=5][b]Installing Mods[/b][/size]\n<br />Follow these steps to install mods.\n<br />\n<br />[list=1]\n<br />[*]Browse to [b]No Man's Sky&#92;GAMEDATA[/b].\n<br />[*]Create a folder named [b]MODS[/b].\n<br />[*]Place the [b]mod folder containing the loose files into the MODS folder[/b] (they have to be in the MODS folder itself and not in any subfolder, and no loose files should be inside the MODS folder).\n<br />[*]Start the game and wait for the splash screen to disappear.\n<br />[*]If done correctly [b]the[/b] [b]game will display a[/b] [b]warning[/b] just before displaying the selection of saved games.\n<br />[/list][/quote]The warning will look like [url=https://i.imgur.com/zTEEFwI.jpeg]this[/url].",
     "state": "normal",
     "warningMessage": ""
   },
@@ -21,7 +21,7 @@
     "version": "6.0.5",
     "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/1647/1647-1596700597-586096860.png",
     "author": "Bladehawke",
-    "mod_downloads": 9525,
+    "mod_downloads": 9526,
     "endorsement_count": 336,
     "updated_timestamp": 1758042288,
     "created_timestamp": 1596701082,
@@ -72,7 +72,7 @@
     "created_timestamp": 1759027453,
     "description": "This mod add the Starship Fabricator and the Corvette teleport pads to Abandoned Stations, which also include all the Stations in the Abandoned Mode.\n<br />\n<br />[quote]⚠️ Replacement mod - Unlikely to work well with other Replacement mods[/quote]\n<br />\n<br />[quote][size=5][b]Installing Mods[/b][/size]\n<br />Follow these steps to install mods.\n<br />\n<br />[list=1]\n<br />[*]Browse to [b]No Man's Sky&#92;GAMEDATA[/b].\n<br />[*]Create a folder named [b]MODS[/b].\n<br />[*]Place the [b]mod folder containing the loose files into the MODS folder[/b] (they have to be in the MODS folder itself and not in any subfolder, and no loose files should be inside the MODS folder).\n<br />[*]Start the game and wait for the splash screen to disappear.\n<br />[*]If done correctly [b]the[/b] [b]game will display a[/b] [b]warning[/b] just before displaying the selection of saved games.\n<br />[/list][/quote]The warning will look like [url=https://i.imgur.com/zTEEFwI.jpeg]this[/url].",
     "state": "warning",
-    "warningMessage": "This mod uses MBIN files, might conflict with other mods changing the same MBIN file."
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
   },
   {
     "mod_id": 3360,
@@ -86,6 +86,51 @@
     "updated_timestamp": 1757864515,
     "created_timestamp": 1739229386,
     "description": "I always found weird that you can recover your Hazard Shield and your HP on your base but for whatever reason you can't just plug your Oxygen Tank somewhere and recover your Life Support, so now you can, the Health Station will recover both your HP and your Life Support meter when used.\n<br />\n<br />[b][size=5][url=https://antifandom.com/nomanssky/wiki/Mods#Installing_Mods][color=#ffff00]Click Here for Instructions of how to Install Mods[/color][/url][/size][/b]",
+    "state": "normal",
+    "warningMessage": ""
+  },
+  {
+    "mod_id": 3810,
+    "name": "Buildable Corvette Workshop Cache",
+    "summary": "Allows you to build the Corvette Workshop Cache in your base or in your Corvette.",
+    "version": "6.16",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3810/3810-1758503837-1387152977.png",
+    "author": "Syzzle",
+    "mod_downloads": 1364,
+    "endorsement_count": 48,
+    "updated_timestamp": 1762723008,
+    "created_timestamp": 1758503975,
+    "description": "This mod adds the Corvette Workshop Cache to be unlocked at the Anomaly (the same place you unlock the other base storages) so you can build them in your bases or inside your Corvette to get access to all your Corvette parts.\n<br />\n<br />PS: There may or may not be a bug with the game when you build (and/or dismantle) it inside the Corvette where the camera breaks and farther away from the ship, going back to the main menu and loading back in fixes the bug, so far the bug apparently only happens when building and/or dismantling it inside the Corvette, normal use doesn't break so far.\n<br />\n<br />[quote][size=5][b]Installing Mods[/b][/size]\n<br />Follow these steps to install mods.\n<br />\n<br />[list=1]\n<br />[*]Browse to [b]No Man's Sky&#92;GAMEDATA[/b].\n<br />[*]Create a folder named [b]MODS[/b].\n<br />[*]Place the [b]mod folder containing the loose files into the MODS folder[/b] (they have to be in the MODS folder itself and not in any subfolder, and no loose files should inside the MODS folder).\n<br />[*]Start the game and wait for the splash screen to disappear.\n<br />[*]If done correctly [b]the[/b] [b]game will display a[/b] [b]warning[/b] just before displaying the selection of saved games.\n<br />[/list][/quote]The warning will look like [url=https://i.imgur.com/zTEEFwI.jpeg]this[/url].",
+    "state": "warning",
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
+  },
+  {
+    "mod_id": 3785,
+    "name": "Buildable Starship Outfitting Terminal",
+    "summary": "Allow you to build the Starship Outfitting Terminal in your base or Corvette.",
+    "version": "6.16",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3785/3785-1757875864-951689876.jpg",
+    "author": "Syzzle",
+    "mod_downloads": 1194,
+    "endorsement_count": 27,
+    "updated_timestamp": 1762722886,
+    "created_timestamp": 1757876175,
+    "description": "This mod adds 2 buildings of the Starship Outfitting Terminal to be unlocked in the Anomaly, one of them uses the original circle design you find in the Stations, but without the top part of it and the other uses an Autophage terminal design. The optional version of the Mod is the same as the main, except the Autophage design one has decoration around it.\n<br />\n<br />[quote][size=5][b]Installing Mods[/b][/size]\n<br />Follow these steps to install mods.\n<br />\n<br />[list=1]\n<br />[*]Browse to [b]No Man's Sky&#92;GAMEDATA[/b].\n<br />[*]Create a folder named [b]MODS[/b].\n<br />[*]Place the [b]mod folder containing the loose files into the MODS folder[/b] (they have to be in the MODS folder itself and not in any subfolder, and no loose files should inside the MODS folder).\n<br />[*]Start the game and wait for the splash screen to disappear.\n<br />[*]If done correctly [b]the[/b] [b]game will display a[/b] [b]warning[/b] just before displaying the selection of saved games.\n<br />[/list][/quote]The warning will look like [url=https://i.imgur.com/zTEEFwI.jpeg]this[/url].",
+    "state": "warning",
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
+  },
+  {
+    "mod_id": 3420,
+    "name": "Communism - A Consumerism AddOn",
+    "summary": "Makes every Expedition and Twitch item added by Consumerism FREE OF CHARGE.",
+    "version": "6.10",
+    "picture_url": "https://staticdelivery.nexusmods.com/mods/1634/images/3420/3420-1743029391-404502943.png",
+    "author": "Syzzle",
+    "mod_downloads": 10564,
+    "endorsement_count": 184,
+    "updated_timestamp": 1761260463,
+    "created_timestamp": 1743035334,
+    "description": "[center]That's right Comrade, are you also tired of the capitalism devils dictating what you can or can not have? If you are then you can join us, this little trick can help you achieve everything you desire and the best part is that you will be able to do that FOR FREE! \n<br />You've heard it right, FOR FREE! \n<br />\n<br />[size=5][b]THERE IS NO CATCH![/b][/size]\n<br />\n<br />If you want to bask in this red glory then just install our [i]thing[/i] on your game, and as you probably have guessed, this thing is also FREE!\n<br />\n<br />If you still not believe in what we're saying, then don't believe on us, believe on them who believes on us.\n<br />\n<br />[img]https://i.imgur.com/y3JelQA.png[/img]﻿﻿[/center][center]﻿[/center][center][size=4][b]Convinced now?[/b][/size]\n<br />Then join us in this WAR against CAPITALISM, to do it is pretty simple, download our program and follow the instructions below to activate it.[/center]\n<br />[quote][size=5][b]Installing Mods[/b][/size]\n<br />Follow these steps to install mods.\n<br />\n<br />[list=1]\n<br />[*]Browse to [b]No Man's Sky&#92;GAMEDATA[/b].\n<br />[*]Create a folder named [b]MODS[/b].\n<br />[*]Place the [b]mod folder containing the loose files into the MODS folder[/b] (they have to be in the MODS folder itself and not in any subfolder, and no loose files should be inside the MODS folder).\n<br />[*]Start the game and wait for the splash screen to disappear.\n<br />[*]If done correctly [b]the[/b] [b]game will display a[/b] [b]warning[/b] just before displaying the selection of saved games.\n<br />[/list][/quote][center]The warning will look like [url=https://i.imgur.com/zTEEFwI.jpeg]this[/url].[/center]\n<br />\n<br />[center][img]https://i.imgur.com/kVHngZn.png[/img]﻿[/center]",
     "state": "normal",
     "warningMessage": ""
   }
