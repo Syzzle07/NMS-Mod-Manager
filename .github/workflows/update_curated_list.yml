@@ -1,31 +1,29 @@
 name: Update Curated Mod List
 
-# This action runs on a schedule (every hour)
 on:
   schedule:
     - cron: '0 * * * *' # Runs at the beginning of every hour
-  # This also allows you to run it manually from the Actions tab on GitHub
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Check out the repository's code so our script can access it
+      # Step 1: Check out the repository's code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up the Node.js environment for our script
+      # Step 2: Set up the Node.js environment
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use a recent, stable version of Node.js
+          node-version: '20'
 
-      # Step 3: Run our generation script
+      # Step 3: Run script
       - name: Generate curated_list.json
-        run: node .github/scripts/generate_curated_list.js
+        run: node .github/scripts/generate_curated_list.cjs
         env:
-          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }} # This injects our secret
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
 
       # Step 4: Automatically commit the newly generated file back to the repository
       - name: Commit and push if changed
