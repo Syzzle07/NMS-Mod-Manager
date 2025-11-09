@@ -22,10 +22,25 @@
   {
     "id": "3828",
     "state": "warning",
-    "warningMessage": "This mod uses MBIN files, might conflict with other mods changing the same MBIN file."
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
   },
   {
     "id": "3360",
+    "state": "normal",
+    "warningMessage": ""
+  },
+  {
+    "id": "3810",
+    "state": "warning",
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
+  },
+  {
+    "id": "3785",
+    "state": "warning",
+    "warningMessage": "Mod uses MBIN files, will conflict with other mod changing the same MBIN and likely to break when a new game update releases."
+  },
+  {
+    "id": "3420",
     "state": "normal",
     "warningMessage": ""
   }
