@@ -28,6 +28,20 @@ async function fetchModDataFromNexus(modId) {
   }
 }
 
+// NEW helper function to fetch the file list for a mod
+async function fetchModFilesFromNexus(modId) {
+  const url = `https://api.nexusmods.com/v1/games/nomanssky/mods/${modId}/files.json`;
+  const headers = { "apikey": NEXUS_API_KEY };
+  try {
+    const response = await fetch(url, { headers });
+    if (!response.ok) return { files: [] }; // Return empty array on error
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch files for mod ID ${modId}:`, error);
+    return { files: [] }; // Return empty array on error
+  }
+}
+
 // Main function to orchestrate the process
 async function buildCuratedList() {
   console.log("Starting to build curated mod list...");
@@ -39,15 +53,22 @@ async function buildCuratedList() {
 
   console.log(`Found ${modsToProcess.length} mods to process.`);
 
-  // 2. Fetch data for all mods in parallel
-  const modIds = modsToProcess.map(mod => mod.id);
-  const promises = modIds.map(id => fetchModDataFromNexus(id));
+  // 2. NEW: Fetch both mod data and file data in parallel for each mod
+  const promises = modsToProcess.map(async (mod) => {
+    const [modData, filesData] = await Promise.all([
+      fetchModDataFromNexus(mod.id),
+      fetchModFilesFromNexus(mod.id)
+    ]);
+    return { modData, filesData }; // Return a combined object
+  });
+  
   const results = await Promise.all(promises);
 
   // 3. Process and merge the data
   const finalModData = results
-    .filter(modData => modData !== null) // Filter out any failed requests
-    .map(modData => {
+    .filter(result => result.modData !== null) // Filter out any failed mod requests
+    .map(result => {
+      const { modData, filesData } = result;
       const modIdStr = String(modData.mod_id);
       const warningInfo = warningsMap.get(modIdStr);
 
@@ -64,9 +85,10 @@ async function buildCuratedList() {
         updated_timestamp: modData.updated_timestamp,
         created_timestamp: modData.created_timestamp,
         description: modData.description,
-        // Merge the warning info
         state: warningInfo ? warningInfo.state : 'normal',
-        warningMessage: warningInfo ? warningInfo.warningMessage : ''
+        warningMessage: warningInfo ? warningInfo.warningMessage : '',
+        // NEW: Add the files array to the final object
+        files: filesData.files 
       };
     });
 
@@ -84,5 +106,3 @@ buildCuratedList().catch(error => {
   console.error("Script failed:", error);
   process.exit(1);
 });
-
-
